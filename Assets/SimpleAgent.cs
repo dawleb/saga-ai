@@ -9,48 +9,69 @@ public class SimpleAgent : Agent
     public Transform target;
     public float moveSpeed = 3f;
 
-private void Start()
-{
-    Debug.Log("SIMPLE AGENT STARTED");
-}
+    private float previousDistanceToTarget;
 
     public override void OnEpisodeBegin()
     {
+        // Reset agent
         transform.localPosition = new Vector3(0f, 0.5f, 0f);
 
-        // Randomize the target position at the start of each episode
+        // Randomize target
         float randomX = Random.Range(-7f, 7f);
         float randomZ = Random.Range(-7f, 7f);
 
         target.localPosition = new Vector3(randomX, 0.5f, randomZ);
+
+        // Initial distance
+        previousDistanceToTarget =
+            Vector3.Distance(transform.localPosition, target.localPosition);
     }
 
     public override void CollectObservations(VectorSensor sensor)
     {
-        // <My position
-        sensor.AddObservation(transform.localPosition);
+        // Target position relative to agent
+        Vector3 targetRelativePosition =
+            target.localPosition - transform.localPosition;
 
-        // Target position
-        sensor.AddObservation(target.localPosition);
+        sensor.AddObservation(targetRelativePosition);
     }
 
     public override void OnActionReceived(ActionBuffers actions)
     {
-        float moveX = actions.ContinuousActions[0];
-        float moveZ = actions.ContinuousActions[1];
+        // Get actions
+        float moveX = Mathf.Clamp(actions.ContinuousActions[0], -1f, 1f);
+        float moveZ = Mathf.Clamp(actions.ContinuousActions[1], -1f, 1f);
 
         Vector3 movement = new Vector3(moveX, 0f, moveZ);
 
+        // Move agent
         transform.localPosition += movement * moveSpeed * Time.deltaTime;
 
-        // Small penalty for every step
-        AddReward(-0.001f);
+        // Keep agent inside training area
+        Vector3 position = transform.localPosition;
 
-        // Calculate the distance to the target
+        position.x = Mathf.Clamp(position.x, -7f, 7f);
+        position.z = Mathf.Clamp(position.z, -7f, 7f);
+
+        transform.localPosition = position;
+
+        // Current distance
         float distanceToTarget =
             Vector3.Distance(transform.localPosition, target.localPosition);
 
-        // Reward the agent for reaching the target
+        // Reward progress toward target
+        float distanceReward =
+            previousDistanceToTarget - distanceToTarget;
+
+        AddReward(distanceReward * 2f);
+
+        // Save distance for next step
+        previousDistanceToTarget = distanceToTarget;
+
+        // Small time penalty
+        AddReward(-0.001f);
+
+        // Reached target
         if (distanceToTarget < 1f)
         {
             AddReward(1f);
@@ -60,7 +81,6 @@ private void Start()
 
     public override void Heuristic(in ActionBuffers actionsOut)
     {
-        Debug.Log("HEURISTIC IS RUNNING");
         var actions = actionsOut.ContinuousActions;
 
         actions[0] = 0f;

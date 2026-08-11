@@ -1,0 +1,29 @@
+{
+    "My Behavior": {
+        "checkpoints": [
+            {
+                "steps": 50007,
+                "file_path": "results\\SagaAI_New_4\\My Behavior\\My Behavior-50007.onnx",
+                "reward": 10.627988323569298,
+                "creation_time": 1786470542.728515,
+                "auxillary_file_paths": [
+                    "results\\SagaAI_New_4\\My Behavior\\My Behavior-50007.pt"
+                ]
+            }
+        ],
+        "final_checkpoint": {
+            "steps": 50007,
+            "file_path": "results\\SagaAI_New_4\\My Behavior.onnx",
+            "reward": 10.627988323569298,
+            "creation_time": 1786470542.728515,
+            "auxillary_file_paths": [
+                "results\\SagaAI_New_4\\My Behavior\\My Behavior-50007.pt"
+            ]
+        }
+    },
+    "metadata": {
+        "stats_format_version": "0.3.0",
+        "mlagents_version": "1.1.0",
+        "torch_version": "2.13.0+cpu"
+    }
+}
