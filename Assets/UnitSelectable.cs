@@ -2,17 +2,13 @@ using UnityEngine;
 
 public class UnitSelectable : MonoBehaviour
 {
-    public GameObject selectionRing;
-
     public void Select()
     {
-        if (selectionRing != null)
-            selectionRing.SetActive(true);
+        Debug.Log("[PLAYER] Unit selected");
     }
 
     public void Deselect()
     {
-        if (selectionRing != null)
-            selectionRing.SetActive(false);
+        Debug.Log("[PLAYER] Unit deselected");
     }
 }
