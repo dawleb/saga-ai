@@ -55,7 +55,7 @@ public class PlayerController : MonoBehaviour
 
     private System.Collections.IEnumerator MoveToTarget(Vector3 targetPosition)
     {
-        while (Vector3.Distance(transform.position, targetPosition) > 0.05f)
+        while (Vector3.Distance(transform.position, targetPosition) > 0.01f)
         {
             transform.position = Vector3.MoveTowards(
                 transform.position,

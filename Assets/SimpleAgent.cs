@@ -37,7 +37,7 @@ public class SimpleAgent : Agent
         sensor.AddObservation(targetRelativePosition);
     }
 
-    public override void OnActionReceived(ActionBuffers actions)
+   public override void OnActionReceived(ActionBuffers actions)
     {
         // Get movement actions.
         float moveX = Mathf.Clamp(
@@ -65,7 +65,7 @@ public class SimpleAgent : Agent
                 target.localPosition
             );
 
-        // Move toward the target only when outside attack range.
+        // Move only when outside attack range.
         if (distanceToTarget > attackRange)
         {
             transform.localPosition +=
@@ -99,7 +99,7 @@ public class SimpleAgent : Agent
         // Small time penalty.
         AddReward(-0.001f);
 
-        // Reward reaching attack range.
+        // Reward staying inside attack range.
         if (distanceToTarget <= attackRange)
         {
             AddReward(0.001f);
