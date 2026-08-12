@@ -8,28 +8,29 @@ public class SimpleAgent : Agent
 {
     public Transform target;
     public float moveSpeed = 3f;
+    public float attackRange = 1.5f;
 
     private float previousDistanceToTarget;
 
     public override void OnEpisodeBegin()
     {
-        // Reset agent
-        transform.localPosition = new Vector3(0f, 0.5f, 0f);
+        // Reset agent position.
+        transform.localPosition = new Vector3(5f, 0.5f, 5f);
 
-        // Randomize target
-        float randomX = Random.Range(-7f, 7f);
-        float randomZ = Random.Range(-7f, 7f);
+        // Reset player position.
+        target.localPosition = new Vector3(-5f, 0.5f, -5f);
 
-        target.localPosition = new Vector3(randomX, 0.5f, randomZ);
-
-        // Initial distance
+        // Initial distance.
         previousDistanceToTarget =
-            Vector3.Distance(transform.localPosition, target.localPosition);
+            Vector3.Distance(
+                transform.localPosition,
+                target.localPosition
+            );
     }
 
     public override void CollectObservations(VectorSensor sensor)
     {
-        // Target position relative to agent
+        // Observe target position relative to agent.
         Vector3 targetRelativePosition =
             target.localPosition - transform.localPosition;
 
@@ -38,16 +39,40 @@ public class SimpleAgent : Agent
 
     public override void OnActionReceived(ActionBuffers actions)
     {
-        // Get actions
-        float moveX = Mathf.Clamp(actions.ContinuousActions[0], -1f, 1f);
-        float moveZ = Mathf.Clamp(actions.ContinuousActions[1], -1f, 1f);
+        // Get movement actions.
+        float moveX = Mathf.Clamp(
+            actions.ContinuousActions[0],
+            -1f,
+            1f
+        );
 
-        Vector3 movement = new Vector3(moveX, 0f, moveZ);
+        float moveZ = Mathf.Clamp(
+            actions.ContinuousActions[1],
+            -1f,
+            1f
+        );
 
-        // Move agent
-        transform.localPosition += movement * moveSpeed * Time.deltaTime;
+        Vector3 movement = new Vector3(
+            moveX,
+            0f,
+            moveZ
+        );
 
-        // Keep agent inside training area
+        // Calculate current distance to target.
+        float distanceToTarget =
+            Vector3.Distance(
+                transform.localPosition,
+                target.localPosition
+            );
+
+        // Move toward the target only when outside attack range.
+        if (distanceToTarget > attackRange)
+        {
+            transform.localPosition +=
+                movement * moveSpeed * Time.deltaTime;
+        }
+
+        // Keep agent inside training area.
         Vector3 position = transform.localPosition;
 
         position.x = Mathf.Clamp(position.x, -7f, 7f);
@@ -55,31 +80,35 @@ public class SimpleAgent : Agent
 
         transform.localPosition = position;
 
-        // Current distance
-        float distanceToTarget =
-            Vector3.Distance(transform.localPosition, target.localPosition);
+        // Calculate distance after movement.
+        distanceToTarget =
+            Vector3.Distance(
+                transform.localPosition,
+                target.localPosition
+            );
 
-        // Reward progress toward target
+        // Reward progress toward target.
         float distanceReward =
             previousDistanceToTarget - distanceToTarget;
 
         AddReward(distanceReward * 2f);
 
-        // Save distance for next step
+        // Save distance for next step.
         previousDistanceToTarget = distanceToTarget;
 
-        // Small time penalty
+        // Small time penalty.
         AddReward(-0.001f);
 
-        // Reached target
-        if (distanceToTarget < 1f)
+        // Reward reaching attack range.
+        if (distanceToTarget <= attackRange)
         {
-            AddReward(1f);
-            EndEpisode();
+            AddReward(0.001f);
         }
     }
 
-    public override void Heuristic(in ActionBuffers actionsOut)
+    public override void Heuristic(
+        in ActionBuffers actionsOut
+    )
     {
         var actions = actionsOut.ContinuousActions;
 
