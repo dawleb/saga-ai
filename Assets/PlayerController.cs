@@ -5,8 +5,13 @@ public class PlayerController : MonoBehaviour
 {
     public float moveSpeed = 3f;
 
+    private Coroutine moveCoroutine;
+
     private void Update()
     {
+        // Keyboard movement is kept for testing.
+        // Mouse movement is handled by PlayerClickController.
+
         if (Keyboard.current == null)
             return;
 
@@ -36,5 +41,32 @@ public class PlayerController : MonoBehaviour
         position.z = Mathf.Clamp(position.z, -7f, 7f);
 
         transform.localPosition = position;
+    }
+
+    public void MoveTo(Vector3 targetPosition)
+    {
+        targetPosition.y = transform.position.y;
+
+        if (moveCoroutine != null)
+            StopCoroutine(moveCoroutine);
+
+        moveCoroutine = StartCoroutine(MoveToTarget(targetPosition));
+    }
+
+    private System.Collections.IEnumerator MoveToTarget(Vector3 targetPosition)
+    {
+        while (Vector3.Distance(transform.position, targetPosition) > 0.05f)
+        {
+            transform.position = Vector3.MoveTowards(
+                transform.position,
+                targetPosition,
+                moveSpeed * Time.deltaTime
+            );
+
+            yield return null;
+        }
+
+        transform.position = targetPosition;
+        moveCoroutine = null;
     }
 }
