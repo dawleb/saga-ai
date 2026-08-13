@@ -304,7 +304,7 @@ MeshRenderer:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 466695701}
-  m_Enabled: 1
+  m_Enabled: 0
   m_CastShadows: 1
   m_ReceiveShadows: 1
   m_DynamicOccludee: 1
@@ -366,7 +366,8 @@ Transform:
   m_LocalPosition: {x: -5, y: 0.5, z: -5}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
-  m_Children: []
+  m_Children:
+  - {fileID: 607190665}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &466695706
@@ -382,6 +383,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerController
   moveSpeed: 3
+  rotationSpeed: 10
 --- !u!114 &466695707
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -422,7 +424,7 @@ MonoBehaviour:
   mainCamera: {fileID: 1521242793}
   playerController: {fileID: 466695706}
   selectionRing: {fileID: 691701346}
-  attackDistance: 1.5
+  animator: {fileID: 0}
 --- !u!114 &466695711
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -463,6 +465,11 @@ Rigidbody:
   m_Interpolate: 0
   m_Constraints: 48
   m_CollisionDetection: 0
+--- !u!4 &607190665 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 452ac0cb6f5acd741a0af11654e5e17f, type: 3}
+  m_PrefabInstance: {fileID: 1901970824}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &691701346
 GameObject:
   m_ObjectHideFlags: 0
@@ -690,7 +697,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 328fe45adb762b84b81d76702b919773, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 0
+      value: -0.5
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 328fe45adb762b84b81d76702b919773, type: 3}
       propertyPath: m_LocalPosition.z
@@ -728,14 +735,22 @@ PrefabInstance:
       propertyPath: m_Name
       value: PopolBeast
       objectReference: {fileID: 0}
+    - target: {fileID: 2141199742076674974, guid: 328fe45adb762b84b81d76702b919773, type: 3}
+      propertyPath: 'm_Materials.Array.data[0]'
+      value: 
+      objectReference: {fileID: 2100000, guid: 592ef543926df784abbaa79a868feff5, type: 2}
     - target: {fileID: 5866666021909216657, guid: 328fe45adb762b84b81d76702b919773, type: 3}
       propertyPath: m_Avatar
       value: 
-      objectReference: {fileID: 9000000, guid: dd45e74b1d8ec224f9d71b2255f126e7, type: 3}
+      objectReference: {fileID: 9000000, guid: 328fe45adb762b84b81d76702b919773, type: 3}
     - target: {fileID: 5866666021909216657, guid: 328fe45adb762b84b81d76702b919773, type: 3}
       propertyPath: m_Controller
       value: 
-      objectReference: {fileID: 9100000, guid: c72b740581ebf8649afb1ada7876510d, type: 2}
+      objectReference: {fileID: 9100000, guid: 02c59ee9ba5579d4fa598df58cd1732c, type: 2}
+    - target: {fileID: 5866666021909216657, guid: 328fe45adb762b84b81d76702b919773, type: 3}
+      propertyPath: m_ApplyRootMotion
+      value: 0
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -881,6 +896,7 @@ MonoBehaviour:
   target: {fileID: 466695705}
   moveSpeed: 5
   attackRange: 1.5
+  rotationSpeed: 10
 --- !u!114 &1208470504
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1262,6 +1278,71 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 55, y: 0, z: 0}
+--- !u!1001 &1901970824
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 466695705}
+    m_Modifications:
+    - target: {fileID: -8679921383154817045, guid: 452ac0cb6f5acd741a0af11654e5e17f, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 452ac0cb6f5acd741a0af11654e5e17f, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: -0.5
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 452ac0cb6f5acd741a0af11654e5e17f, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 452ac0cb6f5acd741a0af11654e5e17f, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 452ac0cb6f5acd741a0af11654e5e17f, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 452ac0cb6f5acd741a0af11654e5e17f, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 452ac0cb6f5acd741a0af11654e5e17f, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 452ac0cb6f5acd741a0af11654e5e17f, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 452ac0cb6f5acd741a0af11654e5e17f, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 452ac0cb6f5acd741a0af11654e5e17f, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 919132149155446097, guid: 452ac0cb6f5acd741a0af11654e5e17f, type: 3}
+      propertyPath: m_Name
+      value: OzhardDarkwarrior
+      objectReference: {fileID: 0}
+    - target: {fileID: 5866666021909216657, guid: 452ac0cb6f5acd741a0af11654e5e17f, type: 3}
+      propertyPath: m_Controller
+      value: 
+      objectReference: {fileID: 9100000, guid: 4e26494cbf5db1c4fab30fc92cb6f72f, type: 2}
+    - target: {fileID: 5866666021909216657, guid: 452ac0cb6f5acd741a0af11654e5e17f, type: 3}
+      propertyPath: m_ApplyRootMotion
+      value: 0
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: 452ac0cb6f5acd741a0af11654e5e17f, type: 3}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0

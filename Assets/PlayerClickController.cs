@@ -7,7 +7,8 @@ public class PlayerClickController : MonoBehaviour
     public PlayerController playerController;
     public GameObject selectionRing;
 
-    public float attackDistance = 1.5f;
+    [Header("Animation")]
+    public Animator animator;
 
     private UnitSelectable selectedUnit;
 
@@ -19,19 +20,34 @@ public class PlayerClickController : MonoBehaviour
         if (playerController == null)
             playerController =
                 GetComponent<PlayerController>();
+
+        if (animator == null)
+            animator =
+                GetComponentInChildren<Animator>();
     }
 
     private void Update()
     {
+        // Animacja Walk.
+        if (animator != null &&
+            playerController != null)
+        {
+            animator.SetBool(
+                "IsWalking",
+                playerController.IsMoving
+            );
+        }
+
         if (Mouse.current == null)
             return;
 
         if (!Mouse.current.leftButton.wasPressedThisFrame)
             return;
 
-        Ray ray = mainCamera.ScreenPointToRay(
-            Mouse.current.position.ReadValue()
-        );
+        Ray ray =
+            mainCamera.ScreenPointToRay(
+                Mouse.current.position.ReadValue()
+            );
 
         if (!Physics.Raycast(
             ray,
@@ -77,7 +93,9 @@ public class PlayerClickController : MonoBehaviour
         }
     }
 
-    private void SelectUnit(UnitSelectable unit)
+    private void SelectUnit(
+        UnitSelectable unit
+    )
     {
         if (selectedUnit != null)
             selectedUnit.Deselect();
@@ -90,73 +108,70 @@ public class PlayerClickController : MonoBehaviour
         );
     }
 
-    private void MoveToEnemy(Health enemy)
-{
-    if (playerController == null)
-        return;
-
-    Collider playerCollider =
-        GetComponent<Collider>();
-
-    Collider enemyCollider =
-        enemy.GetComponentInChildren<Collider>();
-
-    if (enemyCollider == null)
+    private void MoveToEnemy(
+        Health enemy
+    )
     {
-        Debug.LogWarning(
-            "[PLAYER] Enemy has no Collider!"
+        if (playerController == null)
+            return;
+
+        Collider enemyCollider =
+            enemy.GetComponentInChildren<Collider>();
+
+        if (enemyCollider == null)
+        {
+            Debug.LogWarning(
+                "[PLAYER] Enemy has no Collider!"
+            );
+
+            return;
+        }
+
+        Vector3 direction =
+            transform.position -
+            enemy.transform.position;
+
+        direction.y = 0f;
+
+        if (direction.sqrMagnitude < 0.01f)
+        {
+            direction = Vector3.back;
+        }
+
+        direction.Normalize();
+
+        Vector3 enemySurface =
+            enemyCollider.ClosestPoint(
+                transform.position
+            );
+
+        float extraDistance = 0.1f;
+
+        Vector3 attackPosition =
+            enemySurface +
+            direction * extraDistance;
+
+        attackPosition.y =
+            transform.position.y;
+
+        if (selectionRing != null)
+        {
+            selectionRing.SetActive(true);
+
+            selectionRing.transform.position =
+                attackPosition;
+        }
+
+        playerController.MoveTo(
+            attackPosition
         );
 
-        return;
-    }
-
-    Vector3 direction =
-        transform.position -
-        enemy.transform.position;
-
-    direction.y = 0f;
-
-    if (direction.sqrMagnitude < 0.01f)
-    {
-        direction = Vector3.back;
-    }
-
-    direction.Normalize();
-
-    // Get the enemy's closest point toward Player.
-    Vector3 enemySurface =
-        enemyCollider.ClosestPoint(
-            transform.position
+        Debug.Log(
+            $"[PLAYER] Moving to enemy surface: " +
+            $"{attackPosition}"
         );
-
-    // Small extra distance so the colliders
-    // do not touch.
-    float extraDistance = 0.1f;
-
-    Vector3 attackPosition =
-        enemySurface +
-        direction * extraDistance;
-
-    attackPosition.y =
-        transform.position.y;
-
-    if (selectionRing != null)
-    {
-        selectionRing.SetActive(true);
-
-        selectionRing.transform.position =
-            attackPosition;
     }
 
-    playerController.MoveTo(
-        attackPosition
-    );
-
-    Debug.Log(
-        $"[PLAYER] Moving to enemy surface: " +
-        $"{attackPosition}"
-    );
-}
     private void MoveSelectedUnit(
         Vector3 targetPosition
     )
