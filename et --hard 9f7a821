@@ -1,0 +1,12 @@
+[33m3c0880b[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m)[m HEAD@{0}: reset: moving to HEAD
+[33m3c0880b[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m)[m HEAD@{1}: commit: improve combat
+[33m9f7a821[m HEAD@{2}: commit: add combat
+[33m32f44be[m HEAD@{3}: commit: fix movement
+[33m468eb7d[m HEAD@{4}: commit: mouse camera
+[33m6037a5e[m HEAD@{5}: commit: add player
+[33m655e67d[m HEAD@{6}: commit: first model tarining
+[33m5134d3a[m HEAD@{7}: commit: fix camera
+[33m0a8a225[m HEAD@{8}: commit: add agent
+[33m0d16f0a[m HEAD@{9}: commit: game on
+[33m468bbc6[m HEAD@{10}: Branch: renamed refs/heads/master to refs/heads/main
+[33m468bbc6[m HEAD@{12}: commit (initial): first commit

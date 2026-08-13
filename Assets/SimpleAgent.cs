@@ -14,13 +14,24 @@ public class SimpleAgent : Agent
 
     public override void OnEpisodeBegin()
     {
-        // Reset agent position.
-        transform.localPosition = new Vector3(5f, 0.5f, 5f);
+        ResetForNewFight();
+    }
 
-        // Reset player position.
-        target.localPosition = new Vector3(-5f, 0.5f, -5f);
+    // Reset stanu agenta przed rozpoczęciem nowej walki.
+    public void ResetForNewFight()
+    {
+        // Reset agenta.
+        transform.localPosition =
+            new Vector3(5f, 0.5f, 5f);
 
-        // Initial distance.
+        if (target == null)
+            return;
+
+        // Reset Playera.
+        target.localPosition =
+            new Vector3(-5f, 0.5f, -5f);
+
+        // Reset dystansu.
         previousDistanceToTarget =
             Vector3.Distance(
                 transform.localPosition,
@@ -28,78 +39,116 @@ public class SimpleAgent : Agent
             );
     }
 
-    public override void CollectObservations(VectorSensor sensor)
+    public override void CollectObservations(
+        VectorSensor sensor
+    )
     {
-        // Observe target position relative to agent.
-        Vector3 targetRelativePosition =
-            target.localPosition - transform.localPosition;
+        if (target == null)
+        {
+            sensor.AddObservation(Vector3.zero);
+            return;
+        }
 
-        sensor.AddObservation(targetRelativePosition);
+        // Pozycja Playera względem agenta.
+        Vector3 targetRelativePosition =
+            target.localPosition -
+            transform.localPosition;
+
+        sensor.AddObservation(
+            targetRelativePosition
+        );
     }
 
-   public override void OnActionReceived(ActionBuffers actions)
+    public override void OnActionReceived(
+        ActionBuffers actions
+    )
     {
-        // Get movement actions.
-        float moveX = Mathf.Clamp(
-            actions.ContinuousActions[0],
-            -1f,
-            1f
-        );
+        if (target == null)
+            return;
 
-        float moveZ = Mathf.Clamp(
-            actions.ContinuousActions[1],
-            -1f,
-            1f
-        );
+        // Ruch X.
+        float moveX =
+            Mathf.Clamp(
+                actions.ContinuousActions[0],
+                -1f,
+                1f
+            );
 
-        Vector3 movement = new Vector3(
-            moveX,
-            0f,
-            moveZ
-        );
+        // Ruch Z.
+        float moveZ =
+            Mathf.Clamp(
+                actions.ContinuousActions[1],
+                -1f,
+                1f
+            );
 
-        // Calculate current distance to target.
+        Vector3 movement =
+            new Vector3(
+                moveX,
+                0f,
+                moveZ
+            );
+
+        // Aktualny dystans.
         float distanceToTarget =
             Vector3.Distance(
                 transform.localPosition,
                 target.localPosition
             );
 
-        // Move only when outside attack range.
+        // Nie wchodź w Playera.
         if (distanceToTarget > attackRange)
         {
             transform.localPosition +=
-                movement * moveSpeed * Time.deltaTime;
+                movement *
+                moveSpeed *
+                Time.deltaTime;
         }
 
-        // Keep agent inside training area.
-        Vector3 position = transform.localPosition;
+        // Granice areny.
+        Vector3 position =
+            transform.localPosition;
 
-        position.x = Mathf.Clamp(position.x, -7f, 7f);
-        position.z = Mathf.Clamp(position.z, -7f, 7f);
+        position.x =
+            Mathf.Clamp(
+                position.x,
+                -7f,
+                7f
+            );
 
-        transform.localPosition = position;
+        position.z =
+            Mathf.Clamp(
+                position.z,
+                -7f,
+                7f
+            );
 
-        // Calculate distance after movement.
+        transform.localPosition =
+            position;
+
+        // Dystans po ruchu.
         distanceToTarget =
             Vector3.Distance(
                 transform.localPosition,
                 target.localPosition
             );
 
-        // Reward progress toward target.
+        // Nagroda za zbliżanie się.
         float distanceReward =
-            previousDistanceToTarget - distanceToTarget;
+            previousDistanceToTarget -
+            distanceToTarget;
 
-        AddReward(distanceReward * 2f);
+        AddReward(
+            distanceReward * 2f
+        );
 
-        // Save distance for next step.
-        previousDistanceToTarget = distanceToTarget;
+        previousDistanceToTarget =
+            distanceToTarget;
 
-        // Small time penalty.
+        // Mała kara za upływ czasu.
         AddReward(-0.001f);
 
-        // Reward staying inside attack range.
+        // Nagroda za pozostawanie w zasięgu.
         if (distanceToTarget <= attackRange)
         {
             AddReward(0.001f);
@@ -110,7 +159,8 @@ public class SimpleAgent : Agent
         in ActionBuffers actionsOut
     )
     {
-        var actions = actionsOut.ContinuousActions;
+        var actions =
+            actionsOut.ContinuousActions;
 
         actions[0] = 0f;
         actions[1] = 0f;

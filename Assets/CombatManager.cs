@@ -4,6 +4,10 @@ public class CombatManager : MonoBehaviour
 {
     public static CombatManager Instance;
 
+    [Header("Combatants")]
+    public Health player;
+    public Health monster;
+
     [Header("Combat")]
     public float roundCooldown = 1f;
 
@@ -15,32 +19,80 @@ public class CombatManager : MonoBehaviour
     public float attackRange = 1.5f;
 
     private float nextRoundTime;
-
-    private Health player;
-    private Health monster;
+    private bool fightFinished;
 
     private void Awake()
     {
         Instance = this;
     }
 
-    public void RegisterCombatants(
-        Health playerHealth,
-        Health monsterHealth
-    )
+    private void Start()
     {
-        player = playerHealth;
-        monster = monsterHealth;
+        // Jeżeli nie ustawiono ręcznie w Inspectorze,
+        // spróbuj znaleźć Health w scenie.
+        if (player == null || monster == null)
+        {
+            Health[] healthObjects =
+                FindObjectsOfType<Health>();
 
-        nextRoundTime = Time.time + 0.1f;
+            foreach (Health health in healthObjects)
+            {
+                SimpleAgent agent =
+                    health.GetComponent<SimpleAgent>();
 
-        Debug.Log(
-            "[COMBAT] Player and Monster registered."
-        );
+                if (agent != null)
+                {
+                    monster = health;
+
+                    if (agent.target != null)
+                    {
+                        player =
+                            agent.target.GetComponent<Health>();
+                    }
+
+                    break;
+                }
+            }
+        }
+
+        if (player == null)
+        {
+            Debug.LogError(
+                "[COMBAT] Player Health nie został znaleziony!"
+            );
+        }
+
+        if (monster == null)
+        {
+            Debug.LogError(
+                "[COMBAT] Monster Health nie został znaleziony!"
+            );
+        }
+
+        if (player != null && monster != null)
+        {
+            Debug.Log(
+                "[COMBAT] Player i Monster znalezieni."
+            );
+
+            Debug.Log(
+                $"[COMBAT] Player HP: {player.CurrentHealth}"
+            );
+
+            Debug.Log(
+                $"[COMBAT] Monster HP: {monster.CurrentHealth}"
+            );
+
+            nextRoundTime =
+                Time.time + 0.5f;
+        }
     }
 
     private void Update()
     {
+        if (fightFinished)
+            return;
+
         if (player == null || monster == null)
             return;
 
@@ -50,10 +102,11 @@ public class CombatManager : MonoBehaviour
         if (!monster.gameObject.activeSelf)
             return;
 
-        float distance = Vector3.Distance(
-            player.transform.position,
-            monster.transform.position
-        );
+        float distance =
+            Vector3.Distance(
+                player.transform.position,
+                monster.transform.position
+            );
 
         if (distance > attackRange)
             return;
@@ -69,55 +122,49 @@ public class CombatManager : MonoBehaviour
 
     private void ResolveRound()
     {
-        // Random damage for both fighters.
-        float playerDamage = Random.Range(
-            damageMin,
-            damageMax
-        );
+        float playerDamage =
+            Random.Range(
+                damageMin,
+                damageMax
+            );
 
-        float monsterDamage = Random.Range(
-            damageMin,
-            damageMax
-        );
+        float monsterDamage =
+            Random.Range(
+                damageMin,
+                damageMax
+            );
 
-        // Save current HP before the round.
         float playerOldHP =
             player.CurrentHealth;
 
         float monsterOldHP =
             monster.CurrentHealth;
 
-        // Calculate both results BEFORE
-        // applying any damage.
         float playerNewHP =
-            playerOldHP - monsterDamage;
+            Mathf.Max(
+                0f,
+                playerOldHP - monsterDamage
+            );
 
         float monsterNewHP =
-            monsterOldHP - playerDamage;
+            Mathf.Max(
+                0f,
+                monsterOldHP - playerDamage
+            );
 
-        // Prevent both fighters from dying
-        // in the same round.
+        // Nie pozwalamy na remis.
         if (playerNewHP <= 0f &&
             monsterNewHP <= 0f)
         {
-            // Randomly choose who survives.
             if (Random.value < 0.5f)
             {
                 playerNewHP = 1f;
                 monsterNewHP = 0f;
-
-                Debug.Log(
-                    "[COMBAT] Player survives the final exchange!"
-                );
             }
             else
             {
                 playerNewHP = 0f;
                 monsterNewHP = 1f;
-
-                Debug.Log(
-                    "[COMBAT] Monster survives the final exchange!"
-                );
             }
         }
 
@@ -133,34 +180,52 @@ public class CombatManager : MonoBehaviour
 
         Debug.Log(
             $"[ROUND] Player HP: " +
-            $"{playerOldHP:F1} -> " +
-            $"{Mathf.Max(0f, playerNewHP):F1}"
+            $"{playerOldHP:F1} -> {playerNewHP:F1}"
         );
 
         Debug.Log(
             $"[ROUND] Monster HP: " +
-            $"{monsterOldHP:F1} -> " +
-            $"{Mathf.Max(0f, monsterNewHP):F1}"
+            $"{monsterOldHP:F1} -> {monsterNewHP:F1}"
         );
 
-        // Apply both results after calculations.
+        // WAŻNE:
+        // Health musi posiadać metodę SetHealth().
         player.SetHealth(playerNewHP);
         monster.SetHealth(monsterNewHP);
 
-        // Announce winner.
-        if (playerNewHP > 0f &&
-            monsterNewHP <= 0f)
+        if (monsterNewHP <= 0f)
         {
             Debug.Log(
-                "[COMBAT] 🏆 PLAYER WINS!"
+                "[COMBAT] PLAYER WINS!"
             );
+
+            fightFinished = true;
         }
-        else if (monsterNewHP > 0f &&
-                 playerNewHP <= 0f)
+        else if (playerNewHP <= 0f)
         {
             Debug.Log(
-                "[COMBAT] 🏆 MONSTER WINS!"
+                "[COMBAT] MONSTER WINS!"
             );
+
+            fightFinished = true;
         }
+    }
+
+    public void RegisterCombatants(
+        Health playerHealth,
+        Health monsterHealth
+    )
+    {
+        player = playerHealth;
+        monster = monsterHealth;
+
+        fightFinished = false;
+
+        nextRoundTime =
+            Time.time + 0.5f;
+
+        Debug.Log(
+            "[COMBAT] Combatants registered."
+        );
     }
 }

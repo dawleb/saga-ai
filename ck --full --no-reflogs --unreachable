@@ -1,0 +1,33 @@
+[33m9f7a821[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m)[m refs/heads/main@{Thu Aug 13 17:42:41 2026}: reset: moving to 9f7a821
+[33m9f7a821[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m)[m HEAD@{Thu Aug 13 17:42:41 2026}: reset: moving to 9f7a821
+[33m3c0880b[m[33m ([m[1;31morigin/main[m[33m)[m HEAD@{Thu Aug 13 17:37:49 2026}: reset: moving to HEAD
+[33m3c0880b[m[33m ([m[1;31morigin/main[m[33m)[m refs/remotes/origin/main@{Wed Aug 12 19:56:06 2026}: update by push
+[33m3c0880b[m[33m ([m[1;31morigin/main[m[33m)[m refs/heads/main@{Wed Aug 12 19:56:00 2026}: commit: improve combat
+[33m3c0880b[m[33m ([m[1;31morigin/main[m[33m)[m HEAD@{Wed Aug 12 19:56:00 2026}: commit: improve combat
+[33m9f7a821[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m)[m refs/heads/main@{Wed Aug 12 18:40:57 2026}: commit: add combat
+[33m9f7a821[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m)[m HEAD@{Wed Aug 12 18:40:57 2026}: commit: add combat
+[33m32f44be[m refs/remotes/origin/main@{Wed Aug 12 17:41:53 2026}: update by push
+[33m32f44be[m refs/heads/main@{Wed Aug 12 17:41:48 2026}: commit: fix movement
+[33m32f44be[m HEAD@{Wed Aug 12 17:41:48 2026}: commit: fix movement
+[33m468eb7d[m refs/remotes/origin/main@{Wed Aug 12 17:33:21 2026}: update by push
+[33m468eb7d[m refs/heads/main@{Wed Aug 12 17:33:13 2026}: commit: mouse camera
+[33m468eb7d[m HEAD@{Wed Aug 12 17:33:13 2026}: commit: mouse camera
+[33m6037a5e[m refs/heads/main@{Wed Aug 12 14:52:48 2026}: commit: add player
+[33m6037a5e[m HEAD@{Wed Aug 12 14:52:48 2026}: commit: add player
+[33m655e67d[m refs/remotes/origin/main@{Tue Aug 11 19:51:22 2026}: update by push
+[33m655e67d[m refs/heads/main@{Tue Aug 11 19:51:12 2026}: commit: first model tarining
+[33m655e67d[m HEAD@{Tue Aug 11 19:51:12 2026}: commit: first model tarining
+[33m5134d3a[m refs/remotes/origin/main@{Mon Aug 10 20:24:48 2026}: update by push
+[33m5134d3a[m refs/heads/main@{Mon Aug 10 20:24:42 2026}: commit: fix camera
+[33m5134d3a[m HEAD@{Mon Aug 10 20:24:42 2026}: commit: fix camera
+[33m0a8a225[m refs/remotes/origin/main@{Mon Aug 10 20:20:55 2026}: update by push
+[33m0a8a225[m refs/heads/main@{Mon Aug 10 20:20:49 2026}: commit: add agent
+[33m0a8a225[m HEAD@{Mon Aug 10 20:20:49 2026}: commit: add agent
+[33m0d16f0a[m refs/remotes/origin/main@{Sun Aug 9 20:28:45 2026}: update by push
+[33m0d16f0a[m refs/heads/main@{Sun Aug 9 20:28:38 2026}: commit: game on
+[33m0d16f0a[m HEAD@{Sun Aug 9 20:28:38 2026}: commit: game on
+[33m468bbc6[m refs/remotes/origin/main@{Sun Aug 9 20:22:18 2026}: update by push
+[33m468bbc6[m refs/heads/main@{Sun Aug 9 20:22:16 2026}: Branch: renamed refs/heads/master to refs/heads/main
+[33m468bbc6[m refs/heads/main@{Sun Aug 9 20:22:16 2026}: commit (initial): first commit
+[33m468bbc6[m HEAD@{Sun Aug 9 20:22:16 2026}: Branch: renamed refs/heads/master to refs/heads/main
+[33m468bbc6[m HEAD@{Sun Aug 9 20:22:16 2026}: commit (initial): first commit

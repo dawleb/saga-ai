@@ -2,58 +2,42 @@ using UnityEngine;
 
 public class Health : MonoBehaviour
 {
+    [Header("Health")]
     public float maxHealth = 100f;
 
-    private float currentHealth;
+    public float CurrentHealth { get; private set; }
 
-    public float CurrentHealth => currentHealth;
-
-    private void Start()
+    private void Awake()
     {
-        currentHealth = maxHealth;
+        ResetHealth();
+    }
+
+    public void ResetHealth()
+    {
+        CurrentHealth = maxHealth;
+    }
+
+    public void SetHealth(float value)
+    {
+        CurrentHealth = Mathf.Clamp(
+            value,
+            0f,
+            maxHealth
+        );
     }
 
     public void TakeDamage(float damage)
     {
-        if (currentHealth <= 0f)
+        if (damage <= 0f)
             return;
 
-        currentHealth -= damage;
-
-        Debug.Log(
-            $"[{gameObject.name}] HP: {currentHealth}"
+        SetHealth(
+            CurrentHealth - damage
         );
-
-        if (currentHealth <= 0f)
-        {
-            currentHealth = 0f;
-            Die();
-        }
     }
 
-    public void SetHealth(float newHealth)
+    public bool IsDead()
     {
-        currentHealth = Mathf.Max(0f, newHealth);
-
-        Debug.Log(
-            $"[{gameObject.name}] HP: {currentHealth}"
-        );
-
-        if (currentHealth <= 0f)
-        {
-            Die();
-        }
-    }
-
-    private void Die()
-    {
-        if (!gameObject.activeSelf)
-            return;
-
-        Debug.Log(
-            $"[{gameObject.name}] Died"
-        );
-
-        gameObject.SetActive(false);
+        return CurrentHealth <= 0f;
     }
 }

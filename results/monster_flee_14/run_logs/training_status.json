@@ -1,0 +1,29 @@
+{
+    "My Behavior": {
+        "checkpoints": [
+            {
+                "steps": 50061,
+                "file_path": "results\\monster_flee_14\\My Behavior\\My Behavior-50061.onnx",
+                "reward": null,
+                "creation_time": 1786634345.0879064,
+                "auxillary_file_paths": [
+                    "results\\monster_flee_14\\My Behavior\\My Behavior-50061.pt"
+                ]
+            }
+        ],
+        "final_checkpoint": {
+            "steps": 50061,
+            "file_path": "results\\monster_flee_14\\My Behavior.onnx",
+            "reward": null,
+            "creation_time": 1786634345.0879064,
+            "auxillary_file_paths": [
+                "results\\monster_flee_14\\My Behavior\\My Behavior-50061.pt"
+            ]
+        }
+    },
+    "metadata": {
+        "stats_format_version": "0.3.0",
+        "mlagents_version": "1.1.0",
+        "torch_version": "2.13.0+cpu"
+    }
+}

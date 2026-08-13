@@ -1,0 +1,42 @@
+{
+    "name": "root",
+    "metadata": {
+        "timer_format_version": "0.1.0",
+        "start_time_seconds": "1786633138",
+        "python_version": "3.10.12 | packaged by Anaconda, Inc. | (main, Jul  5 2023, 19:01:18) [MSC v.1916 64 bit (AMD64)]",
+        "command_line_arguments": "C:\\Users\\Admin\\miniconda3\\envs\\sagaai\\Scripts\\mlagents-learn config\\ppo.yaml --run-id=monster_flee_12",
+        "mlagents_version": "1.1.0",
+        "mlagents_envs_version": "1.1.0",
+        "communication_protocol_version": "1.5.0",
+        "pytorch_version": "2.13.0+cpu",
+        "numpy_version": "1.23.5",
+        "end_time_seconds": "1786633253"
+    },
+    "total": 114.75090849999106,
+    "count": 1,
+    "self": 0.007515999997849576,
+    "children": {
+        "run_training.setup": {
+            "total": 0.047212999998009764,
+            "count": 1,
+            "self": 0.047212999998009764
+        },
+        "TrainerController.start_learning": {
+            "total": 114.6961794999952,
+            "count": 1,
+            "self": 8.039998647291213e-05,
+            "children": {
+                "TrainerController._reset_env": {
+                    "total": 114.69608040001185,
+                    "count": 1,
+                    "self": 114.69608040001185
+                },
+                "TrainerController._save_models": {
+                    "total": 1.8699996871873736e-05,
+                    "count": 1,
+                    "self": 1.8699996871873736e-05
+                }
+            }
+        }
+    }
+}
