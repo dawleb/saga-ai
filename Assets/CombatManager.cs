@@ -72,10 +72,6 @@ public class CombatManager : MonoBehaviour
         if (player != null && monster != null)
         {
             Debug.Log(
-                "[COMBAT] Player i Monster znalezieni."
-            );
-
-            Debug.Log(
                 $"[COMBAT] Player HP: {player.CurrentHealth}"
             );
 
@@ -188,11 +184,11 @@ public class CombatManager : MonoBehaviour
             $"{monsterOldHP:F1} -> {monsterNewHP:F1}"
         );
 
-        // WAŻNE:
-        // Health musi posiadać metodę SetHealth().
+        // Zastosuj obrażenia.
         player.SetHealth(playerNewHP);
         monster.SetHealth(monsterNewHP);
 
+        // Player wygrywa -> Monster znika.
         if (monsterNewHP <= 0f)
         {
             Debug.Log(
@@ -200,7 +196,10 @@ public class CombatManager : MonoBehaviour
             );
 
             fightFinished = true;
+
+            monster.gameObject.SetActive(false);
         }
+        // Monster wygrywa -> Player znika.
         else if (playerNewHP <= 0f)
         {
             Debug.Log(
@@ -208,6 +207,8 @@ public class CombatManager : MonoBehaviour
             );
 
             fightFinished = true;
+
+            player.gameObject.SetActive(false);
         }
     }
 
