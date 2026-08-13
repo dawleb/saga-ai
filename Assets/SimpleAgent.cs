@@ -10,6 +10,9 @@ public class SimpleAgent : Agent
     public float moveSpeed = 3f;
     public float attackRange = 1.5f;
 
+    [Header("Rotation")]
+    public float rotationSpeed = 10f;
+
     private float previousDistanceToTarget;
 
     public override void OnEpisodeBegin()
@@ -88,6 +91,20 @@ public class SimpleAgent : Agent
                 0f,
                 moveZ
             );
+
+        // Obracaj potwora w kierunku ruchu.
+        if (movement.sqrMagnitude > 0.01f)
+        {
+            Quaternion targetRotation =
+                Quaternion.LookRotation(movement);
+
+            transform.rotation =
+                Quaternion.Slerp(
+                    transform.rotation,
+                    targetRotation,
+                    rotationSpeed * Time.deltaTime
+                );
+        }
 
         // Aktualny dystans.
         float distanceToTarget =
