@@ -79,6 +79,22 @@ public class PlayerClickController : MonoBehaviour
         );
 
         // -----------------------------
+        // SELF
+        // -----------------------------
+
+        // The player's own collider sits between the camera and the ground,
+        // so without this the click resolved to a point on our own body and
+        // the character shuffled instead of going where we clicked.
+        if (hit.collider.transform.IsChildOf(transform))
+        {
+            Debug.Log(
+                "[PLAYER] Click hit self, ignored"
+            );
+
+            return;
+        }
+
+        // -----------------------------
         // ENEMY
         // -----------------------------
 

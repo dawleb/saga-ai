@@ -8,7 +8,17 @@ public class PlayerController : MonoBehaviour
 
     private Coroutine moveCoroutine;
 
+    // The height the character walks at, captured once at startup.
+    // Reading transform.position.y on every click meant that any drift in Y
+    // was baked into the next move, so the error grew click after click.
+    private float movementHeight;
+
     public bool IsMoving { get; private set; }
+
+    private void Awake()
+    {
+        movementHeight = transform.position.y;
+    }
 
     private void Update()
     {
@@ -19,7 +29,7 @@ public class PlayerController : MonoBehaviour
     public void MoveTo(Vector3 targetPosition)
     {
         // Zachowujemy aktualną wysokość w WORLD SPACE.
-        targetPosition.y = transform.position.y;
+        targetPosition.y = movementHeight;
 
         if (moveCoroutine != null)
             StopCoroutine(moveCoroutine);
