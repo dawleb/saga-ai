@@ -10,8 +10,6 @@ public class PlayerClickController : MonoBehaviour
     [Header("Animation")]
     public Animator animator;
 
-    private UnitSelectable selectedUnit;
-
     private void Start()
     {
         if (mainCamera == null)
@@ -28,7 +26,10 @@ public class PlayerClickController : MonoBehaviour
 
     private void Update()
     {
-        // Animacja Walk.
+        // -----------------------------
+        // ANIMATION
+        // -----------------------------
+
         if (animator != null &&
             playerController != null)
         {
@@ -38,10 +39,17 @@ public class PlayerClickController : MonoBehaviour
             );
         }
 
+        // -----------------------------
+        // MOUSE
+        // -----------------------------
+
         if (Mouse.current == null)
             return;
 
         if (!Mouse.current.leftButton.wasPressedThisFrame)
+            return;
+
+        if (mainCamera == null)
             return;
 
         Ray ray =
@@ -49,9 +57,14 @@ public class PlayerClickController : MonoBehaviour
                 Mouse.current.position.ReadValue()
             );
 
+        // -----------------------------
+        // RAYCAST
+        // -----------------------------
+
         if (!Physics.Raycast(
             ray,
-            out RaycastHit hit
+            out RaycastHit hit,
+            100f
         ))
         {
             Debug.Log(
@@ -65,17 +78,10 @@ public class PlayerClickController : MonoBehaviour
             $"[PLAYER] Click hit: {hit.collider.name}"
         );
 
-        // Clicked on a selectable unit.
-        UnitSelectable unit =
-            hit.collider.GetComponentInParent<UnitSelectable>();
+        // -----------------------------
+        // ENEMY
+        // -----------------------------
 
-        if (unit != null)
-        {
-            SelectUnit(unit);
-            return;
-        }
-
-        // Clicked on an enemy.
         Health targetHealth =
             hit.collider.GetComponentInParent<Health>();
 
@@ -86,25 +92,37 @@ public class PlayerClickController : MonoBehaviour
             return;
         }
 
-        // Clicked on ground.
-        if (selectedUnit != null)
-        {
-            MoveSelectedUnit(hit.point);
-        }
+        // -----------------------------
+        // GROUND
+        // -----------------------------
+
+        MoveToGround(hit.point);
     }
 
-    private void SelectUnit(
-        UnitSelectable unit
+    private void MoveToGround(
+        Vector3 targetPosition
     )
     {
-        if (selectedUnit != null)
-            selectedUnit.Deselect();
+        if (playerController == null)
+            return;
 
-        selectedUnit = unit;
-        selectedUnit.Select();
+        targetPosition.y =
+            transform.position.y;
+
+        if (selectionRing != null)
+        {
+            selectionRing.SetActive(true);
+
+            selectionRing.transform.position =
+                targetPosition;
+        }
+
+        playerController.MoveTo(
+            targetPosition
+        );
 
         Debug.Log(
-            "[PLAYER] Unit selected"
+            $"[PLAYER] MOVE TO: {targetPosition}"
         );
     }
 
@@ -134,9 +152,7 @@ public class PlayerClickController : MonoBehaviour
         direction.y = 0f;
 
         if (direction.sqrMagnitude < 0.01f)
-        {
             direction = Vector3.back;
-        }
 
         direction.Normalize();
 
@@ -145,11 +161,9 @@ public class PlayerClickController : MonoBehaviour
                 transform.position
             );
 
-        float extraDistance = 0.1f;
-
         Vector3 attackPosition =
             enemySurface +
-            direction * extraDistance;
+            direction * 0.1f;
 
         attackPosition.y =
             transform.position.y;
@@ -167,36 +181,7 @@ public class PlayerClickController : MonoBehaviour
         );
 
         Debug.Log(
-            $"[PLAYER] Moving to enemy surface: " +
-            $"{attackPosition}"
-        );
-    }
-
-    private void MoveSelectedUnit(
-        Vector3 targetPosition
-    )
-    {
-        if (playerController == null)
-            return;
-
-        targetPosition.y =
-            transform.position.y;
-
-        if (selectionRing != null)
-        {
-            selectionRing.SetActive(true);
-
-            selectionRing.transform.position =
-                targetPosition;
-        }
-
-        playerController.MoveTo(
-            targetPosition
-        );
-
-        Debug.Log(
-            $"[PLAYER] MOVE -> " +
-            $"{targetPosition}"
+            $"[PLAYER] MOVE TO ENEMY: {attackPosition}"
         );
     }
 }
