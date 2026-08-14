@@ -1,20 +1,14 @@
 using UnityEditor;
 using UnityEditor.Animations;
-using UnityEditor.SceneManagement;
 using UnityEngine;
 
-// One-shot maintenance utility. Idempotent: safe to run more than once.
+// Asset-level fixes: import settings and the Monster's AnimatorController.
+// These cannot be done at runtime, unlike the scene fixes in SceneRuntimeFixes.
 //
-// Fixes the physics, collider, import and Animator problems behind the
-// "player flies around" and "monster never plays its attack" bugs.
-// It saves the scene and assets itself, so nothing depends on Ctrl+S.
+// Runs automatically when Unity loads or recompiles, so there is no menu item
+// to remember. Everything is idempotent, so once applied it does nothing.
 public static class SagaAIStabilityFixes
 {
-    private const string PlayerName = "Player";
-    private const string MonsterName = "Monster";
-    private const string GroundName = "Ground";
-    private const string SelectionRingName = "SelectionRing";
-
     private const string AttackTrigger = "Attack";
     private const string AttackStateName = "Attack";
 
@@ -36,197 +30,35 @@ public static class SagaAIStabilityFixes
     private const string FallingClipPath =
         "Assets/Animations/Falling.fbx";
 
-    [MenuItem("Tools/SagaAI/Apply Stability Fixes")]
+    private const string SessionKey = "SagaAI.AssetFixesApplied";
+
+    [InitializeOnLoadMethod]
+    private static void AutoApply()
+    {
+        if (SessionState.GetBool(SessionKey, false))
+            return;
+
+        SessionState.SetBool(SessionKey, true);
+
+        // Deferred: the AssetDatabase is not ready during load itself.
+        EditorApplication.delayCall += Apply;
+    }
+
+    [MenuItem("Tools/SagaAI/Apply Asset Fixes")]
     private static void Apply()
     {
-        // --- Scene fixes ---
-        FixCharacterRigidbody(PlayerName);
-        FixCharacterRigidbody(MonsterName);
-        FixMonsterColliders();
-        RemoveGroundBoxCollider();
-        RemoveSelectionRingCollider();
-        DisablePlayerRootMotion();
-
-        // --- Import fixes (must run before the Animator is wired) ---
         EnableIdleLooping();
+
+        // The punch is the Monster's move, so it copies the Beast avatar the
+        // way Crouched Walking already does.
         MakeHumanoid(FistFightClipPath, BeastModelPath, "PopolBeast");
         MakeHumanoid(FallingClipPath, RogerModelPath, "Mercenary_Roger");
 
-        // --- Animator wiring ---
+        // Must run after the clip is Humanoid, or there is nothing to assign.
         AddMonsterAttackState();
 
-        SaveEverything();
+        AssetDatabase.SaveAssets();
     }
-
-    // ---------------------------------------------------------------- scene
-
-    private static void FixCharacterRigidbody(string objectName)
-    {
-        GameObject character = FindInScene(objectName);
-
-        if (character == null)
-        {
-            Warn($"GameObject '{objectName}' not found.");
-            return;
-        }
-
-        Rigidbody body = character.GetComponent<Rigidbody>();
-
-        if (body == null)
-        {
-            Warn($"'{objectName}' has no Rigidbody.");
-            return;
-        }
-
-        Undo.RecordObject(body, "Fix Character Rigidbody");
-
-        // Both characters are moved entirely from script at a locked height.
-        // While the body was dynamic, gravity kept adding downward velocity
-        // that the scripts never cleared, so the character sank through the
-        // ground and every later click inherited the corrupted height.
-        body.isKinematic = true;
-        body.useGravity = false;
-
-        // Rotation Z was left free, which let contacts topple the character.
-        body.constraints = RigidbodyConstraints.FreezeRotation;
-
-        EditorUtility.SetDirty(body);
-
-        Log($"{objectName}: Rigidbody kinematic, gravity off, rotation frozen.");
-    }
-
-    private static void FixMonsterColliders()
-    {
-        GameObject monster = FindInScene(MonsterName);
-
-        if (monster == null)
-        {
-            Warn($"GameObject '{MonsterName}' not found.");
-            return;
-        }
-
-        CapsuleCollider[] capsules =
-            monster.GetComponents<CapsuleCollider>();
-
-        if (capsules.Length == 0)
-        {
-            Warn("Monster has no CapsuleCollider.");
-            return;
-        }
-
-        // Any extra capsule is a leftover. The survivor is reconfigured
-        // below, so which one we keep does not matter.
-        for (int i = capsules.Length - 1; i >= 1; i--)
-        {
-            Undo.DestroyObjectImmediate(capsules[i]);
-            Log("Monster: removed a duplicate CapsuleCollider.");
-        }
-
-        CapsuleCollider body = capsules[0];
-
-        Undo.RecordObject(body, "Fix Monster Collider");
-
-        // The Monster root sits at y = 0.5 and its model child is offset by
-        // -0.5, so the feet are at local y = -0.5. One of the old capsules
-        // reached down to -0.5 in world space, i.e. through the ground.
-        body.direction = 1; // Y axis
-        body.radius = 0.4f;
-        body.height = 1.8f;
-        body.center = new Vector3(0f, 0.4f, 0f);
-
-        EditorUtility.SetDirty(body);
-
-        Log("Monster: capsule resized to stand on the ground.");
-    }
-
-    private static void RemoveGroundBoxCollider()
-    {
-        GameObject ground = FindInScene(GroundName);
-
-        if (ground == null)
-        {
-            Warn($"GameObject '{GroundName}' not found.");
-            return;
-        }
-
-        BoxCollider box = ground.GetComponent<BoxCollider>();
-
-        if (box == null)
-        {
-            Log("Ground: no BoxCollider to remove.");
-            return;
-        }
-
-        // The Ground carried a MeshCollider *and* a BoxCollider whose Y size
-        // was 2.2e-16. A zero-thickness box gives PhysX degenerate contacts,
-        // which is what let the player fall through and pop back out.
-        Undo.DestroyObjectImmediate(box);
-
-        Log("Ground: removed the degenerate zero-thickness BoxCollider.");
-    }
-
-    private static void RemoveSelectionRingCollider()
-    {
-        GameObject ring = FindInScene(SelectionRingName);
-
-        if (ring == null)
-        {
-            Warn($"GameObject '{SelectionRingName}' not found.");
-            return;
-        }
-
-        Collider[] colliders = ring.GetComponents<Collider>();
-
-        if (colliders.Length == 0)
-        {
-            Log("SelectionRing: already has no Collider.");
-            return;
-        }
-
-        // It was already disabled, so it was not blocking anything, but the
-        // ring is purely decorative and should not own a collider at all.
-        for (int i = colliders.Length - 1; i >= 0; i--)
-            Undo.DestroyObjectImmediate(colliders[i]);
-
-        Log("SelectionRing: removed its Collider entirely.");
-    }
-
-    private static void DisablePlayerRootMotion()
-    {
-        GameObject player = FindInScene(PlayerName);
-
-        if (player == null)
-        {
-            Warn($"GameObject '{PlayerName}' not found.");
-            return;
-        }
-
-        Animator animator = player.GetComponentInChildren<Animator>();
-
-        if (animator == null)
-        {
-            Warn("Player has no Animator.");
-            return;
-        }
-
-        if (!animator.applyRootMotion)
-        {
-            Log("Player: root motion already disabled.");
-            return;
-        }
-
-        Undo.RecordObject(animator, "Disable Player Root Motion");
-
-        // The Monster already had this off. With it on, the animation drives
-        // the model away from the character root that the scripts control.
-        animator.applyRootMotion = false;
-
-        EditorUtility.SetDirty(animator);
-
-        Log("Player: Apply Root Motion disabled on the Animator.");
-    }
-
-    // --------------------------------------------------------------- import
 
     private static void EnableIdleLooping()
     {
@@ -234,10 +66,7 @@ public static class SagaAIStabilityFixes
             AssetImporter.GetAtPath(IdleClipPath) as ModelImporter;
 
         if (importer == null)
-        {
-            Warn($"No ModelImporter for {IdleClipPath}.");
             return;
-        }
 
         ModelImporterClipAnimation[] clips = importer.clipAnimations;
 
@@ -245,10 +74,7 @@ public static class SagaAIStabilityFixes
             clips = importer.defaultClipAnimations;
 
         if (clips == null || clips.Length == 0)
-        {
-            Warn("Idle.fbx has no animation clips.");
             return;
-        }
 
         bool changed = false;
 
@@ -262,15 +88,12 @@ public static class SagaAIStabilityFixes
         }
 
         if (!changed)
-        {
-            Log("Idle.fbx: already looping.");
             return;
-        }
 
         importer.clipAnimations = clips;
         importer.SaveAndReimport();
 
-        Log("Idle.fbx: Loop Time enabled.");
+        Log("Idle.fbx: Loop Time enabled, it no longer freezes.");
     }
 
     private static void MakeHumanoid(
@@ -289,16 +112,13 @@ public static class SagaAIStabilityFixes
         }
 
         if (importer.animationType == ModelImporterAnimationType.Human)
-        {
-            Log($"{clipPath}: already Humanoid.");
             return;
-        }
 
         Avatar sourceAvatar = LoadAvatar(avatarModelPath);
 
         if (sourceAvatar == null)
         {
-            Warn($"No Avatar found in {avatarModelPath}, skipped {clipPath}.");
+            Warn($"No Avatar in {avatarModelPath}, skipped {clipPath}.");
             return;
         }
 
@@ -307,10 +127,8 @@ public static class SagaAIStabilityFixes
         importer.sourceAvatar = sourceAvatar;
         importer.SaveAndReimport();
 
-        Log($"{clipPath}: Humanoid, avatar copied from {avatarLabel}.");
+        Log($"{clipPath}: now Humanoid, avatar copied from {avatarLabel}.");
     }
-
-    // ------------------------------------------------------------- animator
 
     private static void AddMonsterAttackState()
     {
@@ -330,8 +148,8 @@ public static class SagaAIStabilityFixes
         if (attackClip == null)
         {
             Warn(
-                $"No AnimationClip inside {FistFightClipPath}, " +
-                "the Attack state was not created."
+                $"No AnimationClip in {FistFightClipPath}, " +
+                "Attack state not created."
             );
 
             return;
@@ -356,6 +174,7 @@ public static class SagaAIStabilityFixes
         if (attackState == null)
         {
             attackState = machine.AddState(AttackStateName);
+
             Log($"MonsterAnimator: added '{AttackStateName}' state.");
         }
 
@@ -371,10 +190,9 @@ public static class SagaAIStabilityFixes
             entry.duration = 0.1f;
             entry.canTransitionToSelf = false;
 
-            Log("MonsterAnimator: AnyState -> Attack on the trigger.");
+            Log("MonsterAnimator: AnyState -> Attack wired to the trigger.");
         }
 
-        // Return to the walk/idle state once the punch has played.
         if (attackState.transitions.Length == 0 &&
             locomotionState != null &&
             locomotionState != attackState)
@@ -434,26 +252,6 @@ public static class SagaAIStabilityFixes
         return false;
     }
 
-    // --------------------------------------------------------------- helpers
-
-    private static GameObject FindInScene(string objectName)
-    {
-        // Includes inactive objects, because SelectionRing starts disabled.
-        GameObject[] all =
-            Object.FindObjectsByType<GameObject>(
-                FindObjectsInactive.Include,
-                FindObjectsSortMode.None
-            );
-
-        foreach (GameObject candidate in all)
-        {
-            if (candidate.name == objectName)
-                return candidate;
-        }
-
-        return null;
-    }
-
     private static Avatar LoadAvatar(string modelPath)
     {
         foreach (Object asset in AssetDatabase.LoadAllAssetsAtPath(modelPath))
@@ -478,23 +276,13 @@ public static class SagaAIStabilityFixes
         return null;
     }
 
-    private static void SaveEverything()
-    {
-        EditorSceneManager.MarkAllScenesDirty();
-        EditorSceneManager.SaveOpenScenes();
-        AssetDatabase.SaveAssets();
-        AssetDatabase.Refresh();
-
-        Log("Scene and assets written to disk.");
-    }
-
     private static void Log(string message)
     {
-        Debug.Log($"[FIX] {message}");
+        Debug.Log($"[ASSET FIX] {message}");
     }
 
     private static void Warn(string message)
     {
-        Debug.LogWarning($"[FIX] {message}");
+        Debug.LogWarning($"[ASSET FIX] {message}");
     }
 }

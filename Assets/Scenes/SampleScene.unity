@@ -269,6 +269,7 @@ GameObject:
   - component: {fileID: 466695709}
   - component: {fileID: 466695711}
   - component: {fileID: 466695713}
+  - component: {fileID: 466695714}
   m_Layer: 0
   m_Name: Player
   m_TagString: Untagged
@@ -465,6 +466,24 @@ Rigidbody:
   m_Interpolate: 0
   m_Constraints: 48
   m_CollisionDetection: 0
+--- !u!114 &466695714
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 466695701}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4aad4f74bf8e3cb42ae21b7d72ac91c9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::HealthBar
+  heightOffset: 1.6
+  width: 1
+  height: 0.12
+  backgroundColor: {r: 0, g: 0, b: 0, a: 0.65}
+  fullHealthColor: {r: 0.25, g: 0.85, b: 0.25, a: 1}
+  noHealthColor: {r: 0.85, g: 0.2, b: 0.2, a: 1}
 --- !u!1 &691701346
 GameObject:
   m_ObjectHideFlags: 0
@@ -573,7 +592,7 @@ Transform:
   m_GameObject: {fileID: 691701346}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 5, y: 0.55, z: 5}
+  m_LocalPosition: {x: 5, y: -0.05, z: 5}
   m_LocalScale: {x: 1.5, y: 0.05, z: 1.5}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -769,6 +788,7 @@ GameObject:
   - component: {fileID: 1208470507}
   - component: {fileID: 1208470508}
   - component: {fileID: 1208470509}
+  - component: {fileID: 1208470510}
   m_Layer: 0
   m_Name: Monster
   m_TagString: Untagged
@@ -1001,6 +1021,24 @@ Rigidbody:
   m_Interpolate: 0
   m_Constraints: 48
   m_CollisionDetection: 0
+--- !u!114 &1208470510
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1208470498}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4aad4f74bf8e3cb42ae21b7d72ac91c9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::HealthBar
+  heightOffset: 1.6
+  width: 1
+  height: 0.12
+  backgroundColor: {r: 0, g: 0, b: 0, a: 0.65}
+  fullHealthColor: {r: 0.25, g: 0.85, b: 0.25, a: 1}
+  noHealthColor: {r: 0.85, g: 0.2, b: 0.2, a: 1}
 --- !u!4 &1220459585 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 63dc5e1be5f80dc42a68625bcbc5ce38, type: 3}
