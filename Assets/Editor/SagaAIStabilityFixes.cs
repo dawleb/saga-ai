@@ -1,5 +1,6 @@
 using UnityEditor;
 using UnityEditor.Animations;
+using UnityEditor.SceneManagement;
 using UnityEngine;
 
 // Asset-level fixes: import settings and the Monster's AnimatorController.
@@ -30,6 +31,9 @@ public static class SagaAIStabilityFixes
     private const string FallingClipPath =
         "Assets/Animations/Falling.fbx";
 
+    private const string GunPath =
+        "Assets/Characters/Warrior/fbx/Weapons_x3/gun.fbx";
+
     private const string SessionKey = "SagaAI.AssetFixesApplied";
 
     [InitializeOnLoadMethod]
@@ -47,6 +51,12 @@ public static class SagaAIStabilityFixes
     [MenuItem("Tools/SagaAI/Apply Asset Fixes")]
     private static void Apply()
     {
+        // Editing the scene during play mode would be thrown away on exit.
+        if (EditorApplication.isPlayingOrWillChangePlaymode)
+            return;
+
+        EnsurePlayerWeapon();
+
         EnableIdleLooping();
 
         // The punch is the Monster's move, so it copies the Beast avatar the
@@ -58,6 +68,51 @@ public static class SagaAIStabilityFixes
         AddMonsterAttackState();
 
         AssetDatabase.SaveAssets();
+    }
+
+    // Gives the Soldier its weapon. The model is assigned here rather than by
+    // hand so there is nothing to drag into the Inspector.
+    private static void EnsurePlayerWeapon()
+    {
+        GameObject player = GameObject.Find("Player");
+
+        if (player == null)
+            return;
+
+        WeaponHolder holder = player.GetComponent<WeaponHolder>();
+        bool changed = false;
+
+        if (holder == null)
+        {
+            holder = player.AddComponent<WeaponHolder>();
+            changed = true;
+
+            Log("Player: WeaponHolder added.");
+        }
+
+        if (holder.weaponPrefab == null)
+        {
+            GameObject gun =
+                AssetDatabase.LoadAssetAtPath<GameObject>(GunPath);
+
+            if (gun == null)
+            {
+                Warn($"Weapon model not found at {GunPath}.");
+            }
+            else
+            {
+                holder.weaponPrefab = gun;
+                changed = true;
+
+                Log($"Player: '{gun.name}' assigned as the weapon.");
+            }
+        }
+
+        if (!changed)
+            return;
+
+        EditorUtility.SetDirty(holder);
+        EditorSceneManager.MarkSceneDirty(player.scene);
     }
 
     private static void EnableIdleLooping()
