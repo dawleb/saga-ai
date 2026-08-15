@@ -12,7 +12,7 @@ public class SelectionRing : MonoBehaviour
 {
     [Header("Shape")]
     public float outerRadius = 0.6f;
-    public float thickness = 0.12f;
+    public float thickness = 0.06f;
 
     [Range(12, 128)]
     public int segments = 64;

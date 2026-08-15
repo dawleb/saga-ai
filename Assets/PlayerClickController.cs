@@ -3,63 +3,70 @@ using UnityEngine.InputSystem;
 
 public class PlayerClickController : MonoBehaviour
 {
+    [Header("References")]
     public Camera mainCamera;
     public PlayerController playerController;
     public GameObject selectionRing;
 
+    [Header("Selection")]
+    public GameObject selectionSquare;
+
     [Header("Animation")]
     public Animator animator;
+
+    private bool isSelected;
+
+    public bool IsSelected
+    {
+        get
+        {
+            return isSelected;
+        }
+    }
 
     private void Start()
     {
         if (mainCamera == null)
+        {
             mainCamera = Camera.main;
+        }
 
         if (playerController == null)
-            playerController =
-                GetComponent<PlayerController>();
+        {
+            playerController = GetComponent<PlayerController>();
+        }
 
         if (animator == null)
-            animator =
-                GetComponentInChildren<Animator>();
+        {
+            animator = GetComponentInChildren<Animator>();
+        }
+
+        SetSelected(false);
     }
 
     private void Update()
     {
-        // -----------------------------
-        // ANIMATION
-        // -----------------------------
-
-        if (animator != null &&
-            playerController != null)
-        {
-            animator.SetBool(
-                "IsWalking",
-                playerController.IsMoving
-            );
-        }
-
-        // -----------------------------
-        // MOUSE
-        // -----------------------------
+        UpdateAnimation();
 
         if (Mouse.current == null)
+        {
             return;
+        }
 
         if (!Mouse.current.leftButton.wasPressedThisFrame)
+        {
             return;
+        }
 
         if (mainCamera == null)
+        {
             return;
+        }
 
         Ray ray =
             mainCamera.ScreenPointToRay(
                 Mouse.current.position.ReadValue()
             );
-
-        // -----------------------------
-        // RAYCAST
-        // -----------------------------
 
         if (!Physics.Raycast(
             ray,
@@ -67,10 +74,6 @@ public class PlayerClickController : MonoBehaviour
             100f
         ))
         {
-            Debug.Log(
-                "[PLAYER] Raycast hit nothing"
-            );
-
             return;
         }
 
@@ -78,25 +81,26 @@ public class PlayerClickController : MonoBehaviour
             $"[PLAYER] Click hit: {hit.collider.name}"
         );
 
-        // -----------------------------
-        // SELF
-        // -----------------------------
-
-        // The player's own collider sits between the camera and the ground,
-        // so without this the click resolved to a point on our own body and
-        // the character shuffled instead of going where we clicked.
         if (hit.collider.transform.IsChildOf(transform))
         {
+            SetSelected(true);
+
             Debug.Log(
-                "[PLAYER] Click hit self, ignored"
+                "[PLAYER] Player selected"
             );
 
             return;
         }
 
-        // -----------------------------
-        // ENEMY
-        // -----------------------------
+        if (!isSelected)
+        {
+            Debug.Log(
+                "[PLAYER] Player is not selected. " +
+                "Click ignored."
+            );
+
+            return;
+        }
 
         Health targetHealth =
             hit.collider.GetComponentInParent<Health>();
@@ -105,22 +109,67 @@ public class PlayerClickController : MonoBehaviour
             targetHealth.gameObject != gameObject)
         {
             MoveToEnemy(targetHealth);
+
             return;
         }
-
-        // -----------------------------
-        // GROUND
-        // -----------------------------
 
         MoveToGround(hit.point);
     }
 
-    private void MoveToGround(
-        Vector3 targetPosition
-    )
+    private void UpdateAnimation()
     {
-        if (playerController == null)
+        if (animator != null &&
+            playerController != null)
+        {
+            animator.SetBool(
+                "IsWalking",
+                playerController.IsMoving
+            );
+        }
+    }
+
+    public void SetSelected(bool selected)
+    {
+        isSelected = selected;
+
+        if (selectionSquare != null)
+        {
+            selectionSquare.SetActive(selected);
+
+            if (selected)
+            {
+                selectionSquare.transform.localPosition =
+                    new Vector3(
+                        0f,
+                        0.03f,
+                        0f
+                    );
+            }
+        }
+
+        Debug.Log(
+            selected
+                ? $"[SELECTION] {name} selected"
+                : $"[SELECTION] {name} deselected"
+        );
+    }
+
+    public void MoveToGround(Vector3 targetPosition)
+    {
+        if (!isSelected)
+        {
+            Debug.Log(
+                "[PLAYER] Cannot move. " +
+                "Player is not selected."
+            );
+
             return;
+        }
+
+        if (playerController == null)
+        {
+            return;
+        }
 
         targetPosition.y =
             transform.position.y;
@@ -133,21 +182,24 @@ public class PlayerClickController : MonoBehaviour
                 targetPosition;
         }
 
-        playerController.MoveTo(
-            targetPosition
-        );
+        playerController.MoveTo(targetPosition);
 
         Debug.Log(
             $"[PLAYER] MOVE TO: {targetPosition}"
         );
     }
 
-    private void MoveToEnemy(
-        Health enemy
-    )
+    public void MoveToEnemy(Health enemy)
     {
-        if (playerController == null)
+        if (!isSelected)
+        {
             return;
+        }
+
+        if (playerController == null)
+        {
+            return;
+        }
 
         Collider enemyCollider =
             enemy.GetComponentInChildren<Collider>();
@@ -168,7 +220,9 @@ public class PlayerClickController : MonoBehaviour
         direction.y = 0f;
 
         if (direction.sqrMagnitude < 0.01f)
+        {
             direction = Vector3.back;
+        }
 
         direction.Normalize();
 
@@ -192,9 +246,7 @@ public class PlayerClickController : MonoBehaviour
                 attackPosition;
         }
 
-        playerController.MoveTo(
-            attackPosition
-        );
+        playerController.MoveTo(attackPosition);
 
         Debug.Log(
             $"[PLAYER] MOVE TO ENEMY: {attackPosition}"

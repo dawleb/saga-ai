@@ -1,3 +1,4 @@
+using System.Collections;
 using UnityEngine;
 
 public class CombatManager : MonoBehaviour
@@ -18,12 +19,17 @@ public class CombatManager : MonoBehaviour
     [Header("Range")]
     public float attackRange = 1.5f;
 
-    // Trigger name on the Animator controllers. The animation is purely
-    // visual: CombatManager applies the damage itself.
+    [Header("Victory")]
+    public float victoryDanceDuration = 10f;
+
     private const string AttackTrigger = "Attack";
+    private const string DancingBool = "IsDancing";
+    private const string WalkingBool = "IsWalking";
 
     private Animator playerAnimator;
     private Animator monsterAnimator;
+
+    private PlayerClickController playerClickController;
 
     private float nextRoundTime;
     private bool fightFinished;
@@ -35,8 +41,6 @@ public class CombatManager : MonoBehaviour
 
     private void Start()
     {
-        // Jeżeli nie ustawiono ręcznie w Inspectorze,
-        // spróbuj znaleźć Health w scenie.
         if (player == null || monster == null)
         {
             Health[] healthObjects =
@@ -76,8 +80,23 @@ public class CombatManager : MonoBehaviour
             );
         }
 
-        playerAnimator = FindAttackAnimator(player, "Player");
-        monsterAnimator = FindAttackAnimator(monster, "Monster");
+        playerAnimator =
+            FindAttackAnimator(
+                player,
+                "Player"
+            );
+
+        monsterAnimator =
+            FindAttackAnimator(
+                monster,
+                "Monster"
+            );
+
+        if (player != null)
+        {
+            playerClickController =
+                player.GetComponent<PlayerClickController>();
+        }
 
         if (player != null && monster != null)
         {
@@ -94,16 +113,15 @@ public class CombatManager : MonoBehaviour
         }
     }
 
-    // Returns the combatant's Animator, but only if it can actually play an
-    // attack. Damage does not depend on this, so a missing animation never
-    // stops the fight.
     private Animator FindAttackAnimator(
         Health combatant,
         string label
     )
     {
         if (combatant == null)
+        {
             return null;
+        }
 
         Animator animator =
             combatant.GetComponentInChildren<Animator>();
@@ -118,26 +136,36 @@ public class CombatManager : MonoBehaviour
             return null;
         }
 
-        // Dropping the reference avoids one warning per round from Unity.
-        if (!HasAttackTrigger(animator))
+        if (!HasTrigger(
+            animator,
+            AttackTrigger
+        ))
         {
             Debug.LogWarning(
-                $"[COMBAT] {label}: Animator has no '{AttackTrigger}' " +
-                "trigger, it will fight without an attack animation."
+                $"[COMBAT] {label}: Animator has no " +
+                $"'{AttackTrigger}' trigger. " +
+                "Attack animation will be skipped."
             );
-
-            return null;
         }
 
         return animator;
     }
 
-    private static bool HasAttackTrigger(Animator animator)
+    private static bool HasTrigger(
+        Animator animator,
+        string triggerName
+    )
     {
-        foreach (AnimatorControllerParameter parameter in animator.parameters)
+        foreach (
+            AnimatorControllerParameter parameter
+            in animator.parameters
+        )
         {
-            if (parameter.type == AnimatorControllerParameterType.Trigger &&
-                parameter.name == AttackTrigger)
+            if (
+                parameter.type ==
+                AnimatorControllerParameterType.Trigger &&
+                parameter.name == triggerName
+            )
             {
                 return true;
             }
@@ -149,16 +177,24 @@ public class CombatManager : MonoBehaviour
     private void Update()
     {
         if (fightFinished)
+        {
             return;
+        }
 
         if (player == null || monster == null)
+        {
             return;
+        }
 
         if (!player.gameObject.activeSelf)
+        {
             return;
+        }
 
         if (!monster.gameObject.activeSelf)
+        {
             return;
+        }
 
         float distance =
             Vector3.Distance(
@@ -167,10 +203,14 @@ public class CombatManager : MonoBehaviour
             );
 
         if (distance > attackRange)
+        {
             return;
+        }
 
         if (Time.time < nextRoundTime)
+        {
             return;
+        }
 
         ResolveRound();
 
@@ -180,8 +220,6 @@ public class CombatManager : MonoBehaviour
 
     private void ResolveRound()
     {
-        // Player attacks first, then the monster, so both can never drop to
-        // zero in the same round.
         Attack(
             playerAnimator,
             player,
@@ -189,7 +227,9 @@ public class CombatManager : MonoBehaviour
         );
 
         if (fightFinished)
+        {
             return;
+        }
 
         Attack(
             monsterAnimator,
@@ -205,7 +245,11 @@ public class CombatManager : MonoBehaviour
     )
     {
         if (attackerAnimator != null)
-            attackerAnimator.SetTrigger(AttackTrigger);
+        {
+            attackerAnimator.SetTrigger(
+                AttackTrigger
+            );
+        }
 
         float damage =
             Random.Range(
@@ -219,30 +263,110 @@ public class CombatManager : MonoBehaviour
         defender.TakeDamage(damage);
 
         Debug.Log(
-            $"[ROUND] {attacker.name} attacks {defender.name} " +
-            $"for {damage:F1}"
+            $"[ROUND] {attacker.name} attacks " +
+            $"{defender.name} for {damage:F1}"
         );
 
         Debug.Log(
             $"[ROUND] {defender.name} HP: " +
-            $"{oldHealth:F1} -> {defender.CurrentHealth:F1}"
+            $"{oldHealth:F1} -> " +
+            $"{defender.CurrentHealth:F1}"
         );
 
         if (defender.IsDead())
+        {
             FinishFight(defender);
+        }
     }
 
-    private void FinishFight(Health loser)
+    private void FinishFight(
+        Health loser
+    )
     {
         fightFinished = true;
 
+        bool playerWon =
+            loser == monster;
+
         Debug.Log(
-            loser == monster
+            playerWon
                 ? "[COMBAT] PLAYER WINS!"
                 : "[COMBAT] MONSTER WINS!"
         );
 
         loser.gameObject.SetActive(false);
+
+        if (playerWon)
+        {
+            StartCoroutine(
+                PlayerVictoryDance()
+            );
+        }
+    }
+
+    private IEnumerator PlayerVictoryDance()
+    {
+        if (player == null)
+        {
+            yield break;
+        }
+
+        if (playerAnimator == null)
+        {
+            Debug.LogWarning(
+                "[COMBAT] Player has no Animator. " +
+                "Victory dance cannot play."
+            );
+
+            yield break;
+        }
+
+        if (playerClickController != null)
+        {
+            playerClickController.enabled = false;
+        }
+
+        playerAnimator.ResetTrigger(
+            AttackTrigger
+        );
+
+        playerAnimator.SetBool(
+            WalkingBool,
+            false
+        );
+
+        playerAnimator.SetBool(
+            DancingBool,
+            true
+        );
+
+        Debug.Log(
+            $"[COMBAT] Victory dance started " +
+            $"for {victoryDanceDuration:F1} seconds."
+        );
+
+        yield return new WaitForSeconds(
+            victoryDanceDuration
+        );
+
+        playerAnimator.SetBool(
+            DancingBool,
+            false
+        );
+
+        playerAnimator.SetBool(
+            WalkingBool,
+            false
+        );
+
+        if (playerClickController != null)
+        {
+            playerClickController.enabled = true;
+        }
+
+        Debug.Log(
+            "[COMBAT] Victory dance finished."
+        );
     }
 
     public void RegisterCombatants(
@@ -255,8 +379,23 @@ public class CombatManager : MonoBehaviour
 
         fightFinished = false;
 
-        playerAnimator = FindAttackAnimator(player, "Player");
-        monsterAnimator = FindAttackAnimator(monster, "Monster");
+        playerAnimator =
+            FindAttackAnimator(
+                player,
+                "Player"
+            );
+
+        monsterAnimator =
+            FindAttackAnimator(
+                monster,
+                "Monster"
+            );
+
+        if (player != null)
+        {
+            playerClickController =
+                player.GetComponent<PlayerClickController>();
+        }
 
         nextRoundTime =
             Time.time + 0.5f;

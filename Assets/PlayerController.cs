@@ -3,7 +3,7 @@ using UnityEngine;
 
 public class PlayerController : MonoBehaviour
 {
-    public float moveSpeed = 3f;
+    public float moveSpeed = 2f;
     public float rotationSpeed = 10f;
 
     private Coroutine moveCoroutine;
