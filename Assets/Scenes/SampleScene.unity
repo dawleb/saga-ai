@@ -270,6 +270,7 @@ GameObject:
   - component: {fileID: 466695711}
   - component: {fileID: 466695713}
   - component: {fileID: 466695714}
+  - component: {fileID: 466695715}
   m_Layer: 0
   m_Name: Player
   m_TagString: Untagged
@@ -484,6 +485,23 @@ MonoBehaviour:
   backgroundColor: {r: 0, g: 0, b: 0, a: 0.65}
   fullHealthColor: {r: 0.25, g: 0.85, b: 0.25, a: 1}
   noHealthColor: {r: 0.85, g: 0.2, b: 0.2, a: 1}
+--- !u!114 &466695715
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 466695701}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7fedddc7a88b7a3488ded0249817f11d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::WeaponHolder
+  weaponPrefab: {fileID: 919132149155446097, guid: a88dd01c9109e23428a306367d299b18, type: 3}
+  handBone: 18
+  localPosition: {x: 0, y: 0, z: 0}
+  localEulerAngles: {x: 0, y: 0, z: 0}
+  scale: 1
 --- !u!1 &691701346
 GameObject:
   m_ObjectHideFlags: 0
@@ -752,7 +770,7 @@ PrefabInstance:
     - target: {fileID: 2141199742076674974, guid: 328fe45adb762b84b81d76702b919773, type: 3}
       propertyPath: 'm_Materials.Array.data[0]'
       value: 
-      objectReference: {fileID: 2100000, guid: 592ef543926df784abbaa79a868feff5, type: 2}
+      objectReference: {fileID: 2100000, guid: 994bf6efc7dc70149b0a245b6806ba81, type: 2}
     - target: {fileID: 5866666021909216657, guid: 328fe45adb762b84b81d76702b919773, type: 3}
       propertyPath: m_Avatar
       value: 
@@ -1369,9 +1387,17 @@ PrefabInstance:
       value: Mercenary_Roger
       objectReference: {fileID: 0}
     - target: {fileID: 1020306396740595751, guid: 63dc5e1be5f80dc42a68625bcbc5ce38, type: 3}
+      propertyPath: m_Materials.Array.size
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 1020306396740595751, guid: 63dc5e1be5f80dc42a68625bcbc5ce38, type: 3}
       propertyPath: 'm_Materials.Array.data[0]'
       value: 
-      objectReference: {fileID: 2100000, guid: 592ef543926df784abbaa79a868feff5, type: 2}
+      objectReference: {fileID: 2100000, guid: 52549bbb47d76b348beaa644ea0619dc, type: 2}
+    - target: {fileID: 1020306396740595751, guid: 63dc5e1be5f80dc42a68625bcbc5ce38, type: 3}
+      propertyPath: 'm_Materials.Array.data[1]'
+      value: 
+      objectReference: {fileID: -8013123233076261510, guid: a88dd01c9109e23428a306367d299b18, type: 3}
     - target: {fileID: 5866666021909216657, guid: 63dc5e1be5f80dc42a68625bcbc5ce38, type: 3}
       propertyPath: m_Controller
       value: 
