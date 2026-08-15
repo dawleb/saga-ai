@@ -500,8 +500,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::WeaponHolder
   weaponPrefab: {fileID: 919132149155446097, guid: a88dd01c9109e23428a306367d299b18, type: 3}
   handBone: 18
-  localPosition: {x: 0, y: 0, z: 0}
-  localEulerAngles: {x: 0, y: 0, z: 0}
+  localPosition: {x: -0.02, y: 0.11, z: 0.13}
+  localEulerAngles: {x: 99, y: 0, z: 0}
   scale: 1
 --- !u!1 &691701346
 GameObject:
