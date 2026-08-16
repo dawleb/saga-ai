@@ -3,9 +3,16 @@ using UnityEngine.UI;
 
 // Simple world-space health bar.
 //
-// Attach it to a character root that has a Health component. It builds its own
-// world-space Canvas at runtime, so there is no prefab to keep in sync and
-// nothing to wire in the scene: the same component works on Player and Monster.
+// Player:
+// Character
+// └── Model
+//     └── HealthBarAnchor
+//         └── HealthBar
+//
+// Monster:
+// Character
+// └── HealthBarAnchor
+//     └── HealthBar
 //
 // Health is only read here, never modified.
 public class HealthBar : MonoBehaviour
@@ -19,23 +26,35 @@ public class HealthBar : MonoBehaviour
     public float height = 0.12f;
 
     [Header("Colours")]
-    public Color backgroundColor = new Color(0f, 0f, 0f, 0.65f);
-    public Color fullHealthColor = new Color(0.25f, 0.85f, 0.25f, 1f);
-    public Color noHealthColor = new Color(0.85f, 0.2f, 0.2f, 1f);
+    public Color backgroundColor =
+        new Color(0f, 0f, 0f, 0.65f);
 
-    // The Canvas is authored at this pixel width and then scaled down, which
-    // keeps the RectTransform numbers readable.
+    public Color fullHealthColor =
+        new Color(0.25f, 0.85f, 0.25f, 1f);
+
+    public Color noHealthColor =
+        new Color(0.85f, 0.2f, 0.2f, 1f);
+
     private const float ReferencePixelWidth = 100f;
 
     private Health health;
+
     private Camera targetCamera;
-    private Transform barRoot;
+
+    private Transform barAnchor;
+
+    private RectTransform barRoot;
+
     private RectTransform fillRect;
+
     private Image fillImage;
+
+    private bool barHidden;
 
     private void Awake()
     {
-        health = GetComponentInParent<Health>();
+        health =
+            GetComponentInParent<Health>();
 
         if (health == null)
         {
@@ -52,28 +71,107 @@ public class HealthBar : MonoBehaviour
         Build();
     }
 
+    // ====================================
+    // BUILD
+    // ====================================
+
     private void Build()
     {
-        // Adding a Canvas replaces the plain Transform with a RectTransform,
-        // which destroys the original Transform. So the component is added
-        // first and every transform reference is taken afterwards.
-        GameObject canvasObject = new GameObject("HealthBar");
+        Transform anchorParent =
+            transform;
 
-        Canvas canvas = canvasObject.AddComponent<Canvas>();
-        canvas.renderMode = RenderMode.WorldSpace;
+        // Player gets one extra hierarchy level:
+        //
+        // Player
+        // └── Model
+        //     └── HealthBarAnchor
+        //
+        // Zombie:
+        //
+        // Zombie
+        // └── HealthBarAnchor
 
-        // No GraphicRaycaster on purpose: the bar is decoration and must not
-        // take part in input at all.
+        PlayerClickController playerController =
+            GetComponent<PlayerClickController>();
+
+        if (playerController == null)
+        {
+            playerController =
+                GetComponentInParent<PlayerClickController>();
+        }
+
+        if (playerController != null &&
+            transform.childCount > 0)
+        {
+            anchorParent =
+                transform.GetChild(0);
+        }
+
+        // --------------------------------
+        // CREATE ANCHOR
+        // --------------------------------
+
+        GameObject anchorObject =
+            new GameObject(
+                "HealthBarAnchor"
+            );
+
+        barAnchor =
+            anchorObject.transform;
+
+        barAnchor.SetParent(
+            anchorParent,
+            false
+        );
+
+        barAnchor.localPosition =
+            new Vector3(
+                0f,
+                heightOffset,
+                0f
+            );
+
+        barAnchor.localRotation =
+            Quaternion.identity;
+
+        barAnchor.localScale =
+            Vector3.one;
+
+        // --------------------------------
+        // CREATE CANVAS
+        // --------------------------------
+
+        GameObject canvasObject =
+            new GameObject(
+                "HealthBar"
+            );
+
+        Canvas canvas =
+            canvasObject.AddComponent<Canvas>();
+
+        canvas.renderMode =
+            RenderMode.WorldSpace;
+
         RectTransform canvasRect =
             canvasObject.GetComponent<RectTransform>();
 
-        canvasRect.SetParent(transform, false);
+        canvasRect.SetParent(
+            barAnchor,
+            false
+        );
 
-        barRoot = canvasRect;
+        barRoot =
+            canvasRect;
 
         float referencePixelHeight =
             ReferencePixelWidth *
-            (height / Mathf.Max(width, 0.0001f));
+            (
+                height /
+                Mathf.Max(
+                    width,
+                    0.0001f
+                )
+            );
 
         canvasRect.sizeDelta =
             new Vector2(
@@ -82,7 +180,15 @@ public class HealthBar : MonoBehaviour
             );
 
         canvasRect.localScale =
-            Vector3.one * (width / ReferencePixelWidth);
+            Vector3.one *
+            (
+                width /
+                ReferencePixelWidth
+            );
+
+        // --------------------------------
+        // BACKGROUND
+        // --------------------------------
 
         Image background =
             CreateStretchedImage(
@@ -91,6 +197,10 @@ public class HealthBar : MonoBehaviour
                 backgroundColor
             );
 
+        // --------------------------------
+        // FILL
+        // --------------------------------
+
         fillImage =
             CreateStretchedImage(
                 "Fill",
@@ -98,8 +208,13 @@ public class HealthBar : MonoBehaviour
                 fullHealthColor
             );
 
-        fillRect = fillImage.rectTransform;
+        fillRect =
+            fillImage.rectTransform;
     }
+
+    // ====================================
+    // CREATE IMAGE
+    // ====================================
 
     private static Image CreateStretchedImage(
         string objectName,
@@ -107,40 +222,77 @@ public class HealthBar : MonoBehaviour
         Color color
     )
     {
-        // Same ordering rule as Build: Image brings its own RectTransform, so
-        // it is added before the transform is touched or parented.
-        GameObject imageObject = new GameObject(objectName);
+        GameObject imageObject =
+            new GameObject(
+                objectName
+            );
 
-        Image image = imageObject.AddComponent<Image>();
-        image.color = color;
+        Image image =
+            imageObject.AddComponent<Image>();
 
-        // Must never absorb a click meant for the ground.
-        image.raycastTarget = false;
+        image.color =
+            color;
 
-        RectTransform rect = image.rectTransform;
-        rect.SetParent(parent, false);
+        image.raycastTarget =
+            false;
 
-        rect.anchorMin = Vector2.zero;
-        rect.anchorMax = Vector2.one;
-        rect.offsetMin = Vector2.zero;
-        rect.offsetMax = Vector2.zero;
-        rect.localScale = Vector3.one;
+        RectTransform rect =
+            image.rectTransform;
+
+        rect.SetParent(
+            parent,
+            false
+        );
+
+        rect.anchorMin =
+            Vector2.zero;
+
+        rect.anchorMax =
+            Vector2.one;
+
+        rect.offsetMin =
+            Vector2.zero;
+
+        rect.offsetMax =
+            Vector2.zero;
+
+        rect.localScale =
+            Vector3.one;
 
         return image;
     }
 
+    // ====================================
+    // HEALTH
+    // ====================================
+
     private void Update()
     {
+        if (barHidden)
+        {
+            return;
+        }
+
+        if (health == null ||
+            fillRect == null ||
+            fillImage == null)
+        {
+            return;
+        }
+
         float fraction =
             health.maxHealth > 0f
                 ? Mathf.Clamp01(
-                    health.CurrentHealth / health.maxHealth
+                    health.CurrentHealth /
+                    health.maxHealth
                 )
                 : 0f;
 
-        // Shrinking through the anchor keeps the bar left aligned and needs no
-        // sprite, which Image.fillAmount would require.
-        fillRect.anchorMax = new Vector2(fraction, 1f);
+        fillRect.anchorMax =
+            new Vector2(
+                fraction,
+                1f
+            );
 
         fillImage.color =
             Color.Lerp(
@@ -150,20 +302,85 @@ public class HealthBar : MonoBehaviour
             );
     }
 
+    // ====================================
+    // POSITION / CAMERA
+    // ====================================
+
     private void LateUpdate()
     {
-        // Applied every frame so the offset can be tuned while playing.
-        barRoot.localPosition =
-            new Vector3(0f, heightOffset, 0f);
-
-        if (targetCamera == null)
-            targetCamera = Camera.main;
-
-        if (targetCamera == null)
+        if (barHidden)
+        {
             return;
+        }
 
-        // Face the camera, so the character's own rotation never turns the
-        // bar edge-on.
-        barRoot.rotation = targetCamera.transform.rotation;
+        if (barAnchor == null)
+        {
+            return;
+        }
+
+        barAnchor.localPosition =
+            new Vector3(
+                0f,
+                heightOffset,
+                0f
+            );
+
+        if (targetCamera == null)
+        {
+            targetCamera =
+                Camera.main;
+        }
+
+        if (targetCamera == null)
+        {
+            return;
+        }
+
+        if (barRoot == null)
+        {
+            return;
+        }
+
+        barRoot.rotation =
+            targetCamera.transform.rotation;
+    }
+
+    // ====================================
+    // HIDE BAR
+    // ====================================
+
+    public void HideBar()
+    {
+        if (barHidden)
+        {
+            return;
+        }
+
+        barHidden = true;
+
+        // This disables the generated Canvas,
+        // Background and Fill together.
+        if (barRoot != null)
+        {
+            barRoot.gameObject.SetActive(false);
+        }
+
+        Debug.Log(
+            $"[UI] Health bar hidden for {name}."
+        );
+    }
+
+    // ====================================
+    // SHOW BAR
+    // ====================================
+
+    public void ShowBar()
+    {
+        barHidden = false;
+
+        if (barRoot != null)
+        {
+            barRoot.gameObject.SetActive(true);
+        }
     }
 }

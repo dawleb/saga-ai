@@ -26,10 +26,6 @@ public class CombatManager : MonoBehaviour
     [Header("Combat Rotation")]
     public float combatRotationSpeed = 10f;
 
-    [Header("Monster Attacks")]
-    [Range(0f, 1f)]
-    public float monsterBiteChance = 1f;
-
     [Header("Victory")]
     public float tauntDuration = 3f;
 
@@ -271,10 +267,6 @@ public class CombatManager : MonoBehaviour
                 monster.transform.position
             );
 
-        // --------------------------------
-        // ROTATION
-        // --------------------------------
-
         if (distance <= attackRange)
         {
             RotateTowardsOpponent(
@@ -287,10 +279,6 @@ public class CombatManager : MonoBehaviour
                 player.transform
             );
         }
-
-        // --------------------------------
-        // COMBAT
-        // --------------------------------
 
         if (roundInProgress)
         {
@@ -359,10 +347,6 @@ public class CombatManager : MonoBehaviour
     {
         roundInProgress = true;
 
-        // --------------------------------
-        // PLAYER ATTACK
-        // --------------------------------
-
         yield return StartCoroutine(
             PerformAttack(
                 playerAnimator,
@@ -377,10 +361,6 @@ public class CombatManager : MonoBehaviour
             roundInProgress = false;
             yield break;
         }
-
-        // --------------------------------
-        // MONSTER ATTACK
-        // --------------------------------
 
         yield return StartCoroutine(
             PerformAttack(
@@ -427,18 +407,10 @@ public class CombatManager : MonoBehaviour
             yield break;
         }
 
-        // --------------------------------
-        // FACE OPPONENT
-        // --------------------------------
-
         RotateTowardsOpponent(
             attacker.transform,
             defender.transform
         );
-
-        // --------------------------------
-        // SELECT ATTACK
-        // --------------------------------
 
         string selectedTrigger =
             AttackTrigger;
@@ -457,7 +429,6 @@ public class CombatManager : MonoBehaviour
                     AttackTrigger
                 );
 
-            // Zombie ma używać Bite.
             if (hasBite)
             {
                 selectedTrigger =
@@ -483,10 +454,6 @@ public class CombatManager : MonoBehaviour
                 yield break;
             }
         }
-
-        // --------------------------------
-        // START ATTACK
-        // --------------------------------
 
         if (attackerAnimator != null)
         {
@@ -521,10 +488,6 @@ public class CombatManager : MonoBehaviour
             }
         }
 
-        // --------------------------------
-        // DAMAGE DELAY
-        // --------------------------------
-
         yield return new WaitForSeconds(
             damageDelay
         );
@@ -544,10 +507,6 @@ public class CombatManager : MonoBehaviour
         {
             yield break;
         }
-
-        // --------------------------------
-        // DAMAGE
-        // --------------------------------
 
         float damage =
             Random.Range(
@@ -573,39 +532,15 @@ public class CombatManager : MonoBehaviour
             $"{defender.CurrentHealth:F1}"
         );
 
-        // --------------------------------
-        // DEATH
-        // --------------------------------
-
         if (defender.IsDead() ||
             defender.CurrentHealth <= 0f)
         {
-            // WAŻNE:
-            // Nie uruchamiamy Death od razu.
-            // Najpierw pozwalamy dokończyć
-            // animację ostatniego ciosu.
-
-            float remainingDeathAttackTime =
-                Mathf.Max(
-                    0f,
-                    attackAnimationDuration -
-                    damageDelay
-                );
-
-            yield return new WaitForSeconds(
-                remainingDeathAttackTime
-            );
-
             FinishFight(
                 defender
             );
 
             yield break;
         }
-
-        // --------------------------------
-        // FINISH ATTACK
-        // --------------------------------
 
         float remainingTime =
             Mathf.Max(
@@ -642,6 +577,27 @@ public class CombatManager : MonoBehaviour
                 ? "[COMBAT] PLAYER WINS!"
                 : "[COMBAT] MONSTER WINS!"
         );
+
+        // --------------------------------
+        // STOP DEAD MONSTER AI
+        // --------------------------------
+
+        if (loser == monster)
+        {
+            SimpleAgent agent =
+                monster.GetComponentInParent<SimpleAgent>();
+
+            if (agent != null)
+            {
+                agent.SetDead();
+
+                agent.enabled = false;
+
+                Debug.Log(
+                    "[COMBAT] Monster AI stopped after death."
+                );
+            }
+        }
 
         // --------------------------------
         // HIDE LOSER HEALTH BAR
@@ -702,10 +658,15 @@ public class CombatManager : MonoBehaviour
                 continue;
             }
 
-            healthBar.enabled = false;
+            // IMPORTANT:
+            // Do not only disable the HealthBar component.
+            // The component creates a separate World Space Canvas.
+            // We must disable that generated Canvas too.
+
+            healthBar.HideBar();
 
             Debug.Log(
-                $"[COMBAT] Health bar disabled for {loser.name}."
+                $"[COMBAT] Health bar hidden for {loser.name}."
             );
         }
     }
@@ -728,42 +689,6 @@ public class CombatManager : MonoBehaviour
                 ? playerAnimator
                 : monsterAnimator;
 
-        // --------------------------------
-        // STOP MONSTER AI
-        // --------------------------------
-
-        if (loser == monster)
-        {
-            SimpleAgent agent =
-                monster.GetComponentInParent<SimpleAgent>();
-
-            if (agent != null)
-            {
-                agent.enabled = false;
-
-                Debug.Log(
-                    "[COMBAT] Monster AI disabled after death."
-                );
-            }
-        }
-
-        // --------------------------------
-        // IMPORTANT:
-        // DO NOT MODIFY RIGIDBODY
-        // --------------------------------
-        //
-        // Nie ustawiamy:
-        //
-        // isKinematic = true
-        // useGravity = false
-        //
-        // Dzięki temu Zombie nie powinien
-        // zostać zawieszony w powietrzu.
-
-        // --------------------------------
-        // ANIMATOR
-        // --------------------------------
-
         if (loserAnimator == null)
         {
             Debug.LogWarning(
@@ -773,10 +698,8 @@ public class CombatManager : MonoBehaviour
             return;
         }
 
-        // Death nie może przesuwać całej postaci
-        // przez Root Motion.
-
-        loserAnimator.applyRootMotion = false;
+        loserAnimator.applyRootMotion =
+            false;
 
         loserAnimator.ResetTrigger(
             AttackTrigger
@@ -800,10 +723,6 @@ public class CombatManager : MonoBehaviour
             false
         );
 
-        // --------------------------------
-        // DEATH ANIMATION
-        // --------------------------------
-
         if (HasTrigger(
             loserAnimator,
             DeathTrigger
@@ -825,26 +744,16 @@ public class CombatManager : MonoBehaviour
             );
         }
 
-        // --------------------------------
-        // STOP PLAYER CONTROL
-        // --------------------------------
-
         if (loser == player)
         {
             FindPlayerClickController();
 
             if (playerClickController != null)
             {
-                playerClickController.enabled = false;
+                playerClickController.enabled =
+                    false;
             }
         }
-
-        // WAŻNE:
-        // Nie wyłączamy GameObjectu Zombie.
-        //
-        // Nie ma tutaj:
-        //
-        // loser.gameObject.SetActive(false);
     }
 
     // ====================================
@@ -860,16 +769,13 @@ public class CombatManager : MonoBehaviour
 
         if (playerAnimator == null)
         {
-            Debug.LogWarning(
-                "[COMBAT] Player has no Animator."
-            );
-
             yield break;
         }
 
         if (playerClickController != null)
         {
-            playerClickController.enabled = false;
+            playerClickController.enabled =
+                false;
         }
 
         playerAnimator.ResetTrigger(
@@ -907,13 +813,6 @@ public class CombatManager : MonoBehaviour
                 "[COMBAT] Player victory Taunt started."
             );
         }
-        else
-        {
-            Debug.LogWarning(
-                "[COMBAT] Player Animator has no " +
-                "'Taunt' trigger."
-            );
-        }
 
         yield return new WaitForSeconds(
             tauntDuration
@@ -935,7 +834,8 @@ public class CombatManager : MonoBehaviour
 
         if (playerClickController != null)
         {
-            playerClickController.enabled = true;
+            playerClickController.enabled =
+                true;
         }
 
         Debug.Log(
@@ -956,10 +856,6 @@ public class CombatManager : MonoBehaviour
 
         if (monsterAnimator == null)
         {
-            Debug.LogWarning(
-                "[COMBAT] Monster has no Animator."
-            );
-
             yield break;
         }
 
@@ -996,13 +892,6 @@ public class CombatManager : MonoBehaviour
 
             Debug.Log(
                 "[COMBAT] Monster victory Taunt started."
-            );
-        }
-        else
-        {
-            Debug.LogWarning(
-                "[COMBAT] Monster Animator has no " +
-                "'Taunt' trigger."
             );
         }
 

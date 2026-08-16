@@ -365,7 +365,7 @@ Transform:
   m_GameObject: {fileID: 466695701}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -5, y: 1, z: -5}
+  m_LocalPosition: {x: -5, y: 0, z: -5}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -440,7 +440,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1a22dc16f206cfb47a34a621d9e07531, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CombatController
-  maxHealth: 100
+  maxHealth: 200
 --- !u!54 &466695713
 Rigidbody:
   m_ObjectHideFlags: 0
@@ -480,7 +480,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4aad4f74bf8e3cb42ae21b7d72ac91c9, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::HealthBar
-  heightOffset: 1.6
+  heightOffset: 1.9
   width: 1
   height: 0.12
   backgroundColor: {r: 0, g: 0, b: 0, a: 0.65}
@@ -655,7 +655,6 @@ MonoBehaviour:
   damageMax: 15
   attackRange: 1.5
   combatRotationSpeed: 10
-  monsterBiteChance: 1
   tauntDuration: 3
 --- !u!4 &746929590
 Transform:
@@ -912,7 +911,7 @@ Rigidbody:
   m_UseGravity: 0
   m_IsKinematic: 1
   m_Interpolate: 0
-  m_Constraints: 48
+  m_Constraints: 80
   m_CollisionDetection: 0
 --- !u!136 &1069619710
 CapsuleCollider:
@@ -1016,7 +1015,6 @@ MonoBehaviour:
   moveSpeed: 1
   attackRange: 1.5
   rotationSpeed: 10
-  characterHeight: 0.5
   arenaMin: -7
   arenaMax: 7
 --- !u!136 &1069619715
@@ -1257,7 +1255,6 @@ MonoBehaviour:
   moveSpeed: 5
   attackRange: 1.5
   rotationSpeed: 10
-  characterHeight: 0.5
   arenaMin: -7
   arenaMax: 7
 --- !u!114 &1208470504
