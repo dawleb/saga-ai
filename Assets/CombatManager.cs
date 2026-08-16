@@ -26,6 +26,10 @@ public class CombatManager : MonoBehaviour
     [Header("Combat Rotation")]
     public float combatRotationSpeed = 10f;
 
+    [Header("Monster Attacks")]
+    [Range(0f, 1f)]
+    public float monsterBiteChance = 1f;
+
     [Header("Victory")]
     public float tauntDuration = 3f;
 
@@ -43,6 +47,7 @@ public class CombatManager : MonoBehaviour
     private PlayerClickController playerClickController;
 
     private float nextRoundTime;
+
     private bool fightFinished;
     private bool roundInProgress;
 
@@ -162,6 +167,10 @@ public class CombatManager : MonoBehaviour
         }
     }
 
+    // ====================================
+    // FIND ANIMATOR
+    // ====================================
+
     private Animator FindAttackAnimator(
         Health combatant,
         string label
@@ -192,6 +201,10 @@ public class CombatManager : MonoBehaviour
 
         return animator;
     }
+
+    // ====================================
+    // CHECK ANIMATOR PARAMETER
+    // ====================================
 
     private static bool HasTrigger(
         Animator animator,
@@ -432,24 +445,47 @@ public class CombatManager : MonoBehaviour
 
         if (monsterAttacking)
         {
-            bool useBite =
-                Random.value < 0.5f;
-
-            if (
-                useBite &&
+            bool hasBite =
                 HasTrigger(
                     attackerAnimator,
                     BiteTrigger
-                )
-            )
+                );
+
+            bool hasAttack =
+                HasTrigger(
+                    attackerAnimator,
+                    AttackTrigger
+                );
+
+            // Zombie ma używać Bite.
+            if (hasBite)
             {
                 selectedTrigger =
                     BiteTrigger;
             }
+            else if (hasAttack)
+            {
+                selectedTrigger =
+                    AttackTrigger;
+
+                Debug.LogWarning(
+                    "[COMBAT] Zombie has no Bite trigger. " +
+                    "Falling back to Attack."
+                );
+            }
+            else
+            {
+                Debug.LogError(
+                    "[COMBAT] Zombie Animator has neither " +
+                    "'Bite' nor 'Attack' trigger."
+                );
+
+                yield break;
+            }
         }
 
         // --------------------------------
-        // START ATTACK ANIMATION
+        // START ATTACK
         // --------------------------------
 
         if (attackerAnimator != null)
@@ -470,13 +506,20 @@ public class CombatManager : MonoBehaviour
                 attackerAnimator.SetTrigger(
                     selectedTrigger
                 );
+
+                Debug.Log(
+                    $"[COMBAT] {attacker.name} uses " +
+                    $"{selectedTrigger}."
+                );
+            }
+            else
+            {
+                Debug.LogWarning(
+                    $"[COMBAT] {attacker.name} cannot use " +
+                    $"'{selectedTrigger}'. Trigger does not exist."
+                );
             }
         }
-
-        Debug.Log(
-            $"[COMBAT] {attacker.name} uses " +
-            $"{selectedTrigger}."
-        );
 
         // --------------------------------
         // DAMAGE DELAY
@@ -534,8 +577,25 @@ public class CombatManager : MonoBehaviour
         // DEATH
         // --------------------------------
 
-        if (defender.IsDead())
+        if (defender.IsDead() ||
+            defender.CurrentHealth <= 0f)
         {
+            // WAŻNE:
+            // Nie uruchamiamy Death od razu.
+            // Najpierw pozwalamy dokończyć
+            // animację ostatniego ciosu.
+
+            float remainingDeathAttackTime =
+                Mathf.Max(
+                    0f,
+                    attackAnimationDuration -
+                    damageDelay
+                );
+
+            yield return new WaitForSeconds(
+                remainingDeathAttackTime
+            );
+
             FinishFight(
                 defender
             );
@@ -544,7 +604,7 @@ public class CombatManager : MonoBehaviour
         }
 
         // --------------------------------
-        // FINISH ATTACK ANIMATION
+        // FINISH ATTACK
         // --------------------------------
 
         float remainingTime =
@@ -567,12 +627,7 @@ public class CombatManager : MonoBehaviour
         Health loser
     )
     {
-        if (fightFinished)
-        {
-            return;
-        }
-
-        if (loser == null)
+        if (fightFinished || loser == null)
         {
             return;
         }
@@ -647,32 +702,11 @@ public class CombatManager : MonoBehaviour
                 continue;
             }
 
-            healthBar.gameObject.SetActive(false);
+            healthBar.enabled = false;
 
             Debug.Log(
-                $"[COMBAT] Health bar hidden for {loser.name}."
+                $"[COMBAT] Health bar disabled for {loser.name}."
             );
-        }
-
-        Canvas[] canvases =
-            loser.GetComponentsInChildren<Canvas>(
-                true
-            );
-
-        foreach (Canvas canvas in canvases)
-        {
-            if (canvas == null)
-            {
-                continue;
-            }
-
-            HealthBar healthBar =
-                canvas.GetComponentInParent<HealthBar>();
-
-            if (healthBar != null)
-            {
-                continue;
-            }
         }
     }
 
@@ -695,7 +729,7 @@ public class CombatManager : MonoBehaviour
                 : monsterAnimator;
 
         // --------------------------------
-        // STOP MONSTER AGENT
+        // STOP MONSTER AI
         // --------------------------------
 
         if (loser == monster)
@@ -706,27 +740,25 @@ public class CombatManager : MonoBehaviour
             if (agent != null)
             {
                 agent.enabled = false;
+
+                Debug.Log(
+                    "[COMBAT] Monster AI disabled after death."
+                );
             }
         }
 
         // --------------------------------
-        // STOP RIGIDBODY
+        // IMPORTANT:
+        // DO NOT MODIFY RIGIDBODY
         // --------------------------------
-
-        Rigidbody[] rigidbodies =
-            loser.GetComponentsInChildren<Rigidbody>();
-
-        foreach (Rigidbody rb in rigidbodies)
-        {
-            rb.linearVelocity =
-                Vector3.zero;
-
-            rb.angularVelocity =
-                Vector3.zero;
-
-            rb.isKinematic = true;
-            rb.useGravity = false;
-        }
+        //
+        // Nie ustawiamy:
+        //
+        // isKinematic = true
+        // useGravity = false
+        //
+        // Dzięki temu Zombie nie powinien
+        // zostać zawieszony w powietrzu.
 
         // --------------------------------
         // ANIMATOR
@@ -740,6 +772,11 @@ public class CombatManager : MonoBehaviour
 
             return;
         }
+
+        // Death nie może przesuwać całej postaci
+        // przez Root Motion.
+
+        loserAnimator.applyRootMotion = false;
 
         loserAnimator.ResetTrigger(
             AttackTrigger
@@ -801,6 +838,13 @@ public class CombatManager : MonoBehaviour
                 playerClickController.enabled = false;
             }
         }
+
+        // WAŻNE:
+        // Nie wyłączamy GameObjectu Zombie.
+        //
+        // Nie ma tutaj:
+        //
+        // loser.gameObject.SetActive(false);
     }
 
     // ====================================

@@ -15,9 +15,6 @@ public class SimpleAgent : Agent
     [Header("Rotation")]
     public float rotationSpeed = 10f;
 
-    [Header("Height")]
-    public float characterHeight = 0.5f;
-
     [Header("Arena")]
     public float arenaMin = -7f;
     public float arenaMax = 7f;
@@ -41,28 +38,49 @@ public class SimpleAgent : Agent
         ResetForNewFight();
     }
 
+    // ====================================
+    // RESET
+    // ====================================
+
     public void ResetForNewFight()
     {
         isDead = false;
 
-        // Reset monster.
+        // --------------------------------
+        // RESET MONSTER
+        // --------------------------------
+        //
+        // WAŻNE:
+        // Nie ustawiamy tutaj Y = 0.5.
+        // Zachowujemy wysokość ustawioną
+        // przez scenę / fizykę.
+        //
+
+        Vector3 monsterPosition =
+            transform.localPosition;
+
+        monsterPosition.x = 5f;
+        monsterPosition.z = 5f;
+
         transform.localPosition =
-            new Vector3(
-                5f,
-                characterHeight,
-                5f
-            );
+            monsterPosition;
 
         if (animator != null)
         {
             animator.Rebind();
             animator.Update(0f);
 
+            animator.applyRootMotion = false;
+
             animator.SetBool(
                 "IsWalking",
                 false
             );
         }
+
+        // --------------------------------
+        // RESET PLAYER
+        // --------------------------------
 
         if (target == null)
         {
@@ -71,13 +89,15 @@ public class SimpleAgent : Agent
             return;
         }
 
-        // Reset player.
+        Vector3 playerPosition =
+            target.localPosition;
+
+        playerPosition.x = -5f;
+        playerPosition.z = -5f;
+
+        // Nie zmieniamy Y Playera.
         target.localPosition =
-            new Vector3(
-                -5f,
-                0.5f,
-                -5f
-            );
+            playerPosition;
 
         previousDistanceToTarget =
             Vector3.Distance(
@@ -85,6 +105,10 @@ public class SimpleAgent : Agent
                 target.localPosition
             );
     }
+
+    // ====================================
+    // OBSERVATIONS
+    // ====================================
 
     public override void CollectObservations(
         VectorSensor sensor
@@ -99,7 +123,6 @@ public class SimpleAgent : Agent
             return;
         }
 
-        // Player position relative to the monster.
         Vector3 targetRelativePosition =
             target.localPosition -
             transform.localPosition;
@@ -108,6 +131,10 @@ public class SimpleAgent : Agent
             targetRelativePosition
         );
     }
+
+    // ====================================
+    // ACTION
+    // ====================================
 
     public override void OnActionReceived(
         ActionBuffers actions
@@ -134,7 +161,10 @@ public class SimpleAgent : Agent
             return;
         }
 
-        // Read movement input.
+        // --------------------------------
+        // MOVEMENT INPUT
+        // --------------------------------
+
         float moveX =
             Mathf.Clamp(
                 actions.ContinuousActions[0],
@@ -171,19 +201,20 @@ public class SimpleAgent : Agent
             Vector3 oldPosition =
                 transform.localPosition;
 
+            // Poruszamy tylko X/Z.
+            // Y zostaje nietknięte.
             transform.localPosition +=
                 movement *
                 moveSpeed *
                 Time.deltaTime;
 
-            // Keep monster at its configured height.
+            // --------------------------------
+            // ARENA LIMITS
+            // --------------------------------
+
             Vector3 position =
                 transform.localPosition;
 
-            position.y =
-                characterHeight;
-
-            // Keep monster inside the arena.
             position.x =
                 Mathf.Clamp(
                     position.x,
@@ -201,13 +232,20 @@ public class SimpleAgent : Agent
             transform.localPosition =
                 position;
 
+            // --------------------------------
+            // CHECK ACTUAL MOVEMENT
+            // --------------------------------
+
             bool isActuallyMoving =
                 Vector3.Distance(
                     oldPosition,
                     transform.localPosition
                 ) > 0.0001f;
 
-            // Rotate only while actually moving.
+            // --------------------------------
+            // ROTATION
+            // --------------------------------
+
             if (isActuallyMoving)
             {
                 Vector3 direction =
@@ -216,7 +254,8 @@ public class SimpleAgent : Agent
 
                 direction.y = 0f;
 
-                if (direction.sqrMagnitude > 0.000001f)
+                if (direction.sqrMagnitude >
+                    0.000001f)
                 {
                     Quaternion targetRotation =
                         Quaternion.LookRotation(
@@ -232,6 +271,10 @@ public class SimpleAgent : Agent
                         );
                 }
             }
+
+            // --------------------------------
+            // WALK ANIMATION
+            // --------------------------------
 
             if (animator != null)
             {
@@ -249,12 +292,13 @@ public class SimpleAgent : Agent
         // --------------------------------
         // ARENA LIMITS
         // --------------------------------
+        //
+        // Tylko X/Z.
+        // Nie dotykamy Y.
+        //
 
         Vector3 finalPosition =
             transform.localPosition;
-
-        finalPosition.y =
-            characterHeight;
 
         finalPosition.x =
             Mathf.Clamp(
@@ -318,6 +362,10 @@ public class SimpleAgent : Agent
         }
     }
 
+    // ====================================
+    // STOP WALKING
+    // ====================================
+
     private void StopWalking()
     {
         if (animator == null)
@@ -331,13 +379,78 @@ public class SimpleAgent : Agent
         );
     }
 
-    // Called by CombatManager when the monster dies.
+    // ====================================
+    // DEATH
+    // ====================================
+
+    // Called by CombatManager when
+    // the monster dies.
     public void SetDead()
     {
+        if (isDead)
+        {
+            return;
+        }
+
         isDead = true;
 
         StopWalking();
+
+        // --------------------------------
+        // IMPORTANT
+        // --------------------------------
+        //
+        // Nie ustawiamy tutaj Y.
+        //
+        // Wcześniej było:
+        //
+        // position.y = characterHeight;
+        //
+        // co wymuszało Y = 0.5.
+        //
+        // Teraz Zombie pozostaje dokładnie
+        // na wysokości, na której znajdowało
+        // się w momencie śmierci.
+        //
+
+        Vector3 position =
+            transform.localPosition;
+
+        position.x =
+            Mathf.Clamp(
+                position.x,
+                arenaMin,
+                arenaMax
+            );
+
+        position.z =
+            Mathf.Clamp(
+                position.z,
+                arenaMin,
+                arenaMax
+            );
+
+        transform.localPosition =
+            position;
+
+        // --------------------------------
+        // STOP ROOT MOTION
+        // --------------------------------
+
+        if (animator != null)
+        {
+            animator.applyRootMotion = false;
+        }
+
+        Debug.Log(
+            $"[AGENT] Monster death position: " +
+            $"{transform.localPosition}"
+        );
     }
+
+    // ====================================
+    // HEURISTIC
+    // ====================================
 
     public override void Heuristic(
         in ActionBuffers actionsOut
