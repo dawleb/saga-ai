@@ -12,6 +12,10 @@ public class CombatManager : MonoBehaviour
     [Header("Combat")]
     public float roundCooldown = 1f;
 
+    [Header("Attack Timing")]
+    public float attackAnimationDuration = 0.8f;
+    public float damageDelay = 0.35f;
+
     [Header("Damage")]
     public float damageMin = 8f;
     public float damageMax = 15f;
@@ -20,9 +24,12 @@ public class CombatManager : MonoBehaviour
     public float attackRange = 1.5f;
 
     [Header("Victory")]
-    public float victoryDanceDuration = 10f;
+    public float tauntDuration = 3f;
 
     private const string AttackTrigger = "Attack";
+    private const string BiteTrigger = "Bite";
+    private const string TauntTrigger = "Taunt";
+
     private const string DancingBool = "IsDancing";
     private const string WalkingBool = "IsWalking";
 
@@ -33,6 +40,7 @@ public class CombatManager : MonoBehaviour
 
     private float nextRoundTime;
     private bool fightFinished;
+    private bool roundInProgress;
 
     private void Awake()
     {
@@ -129,23 +137,10 @@ public class CombatManager : MonoBehaviour
         if (animator == null)
         {
             Debug.LogWarning(
-                $"[COMBAT] {label} has no Animator, " +
-                "it will fight without an attack animation."
+                $"[COMBAT] {label} has no Animator."
             );
 
             return null;
-        }
-
-        if (!HasTrigger(
-            animator,
-            AttackTrigger
-        ))
-        {
-            Debug.LogWarning(
-                $"[COMBAT] {label}: Animator has no " +
-                $"'{AttackTrigger}' trigger. " +
-                "Attack animation will be skipped."
-            );
         }
 
         return animator;
@@ -156,6 +151,11 @@ public class CombatManager : MonoBehaviour
         string triggerName
     )
     {
+        if (animator == null)
+        {
+            return false;
+        }
+
         foreach (
             AnimatorControllerParameter parameter
             in animator.parameters
@@ -177,6 +177,11 @@ public class CombatManager : MonoBehaviour
     private void Update()
     {
         if (fightFinished)
+        {
+            return;
+        }
+
+        if (roundInProgress)
         {
             return;
         }
@@ -212,44 +217,146 @@ public class CombatManager : MonoBehaviour
             return;
         }
 
-        ResolveRound();
-
-        nextRoundTime =
-            Time.time + roundCooldown;
+        StartCoroutine(
+            ResolveRound()
+        );
     }
 
-    private void ResolveRound()
+    private IEnumerator ResolveRound()
     {
-        Attack(
-            playerAnimator,
-            player,
-            monster
+        roundInProgress = true;
+
+        // --------------------------------
+        // PLAYER ATTACK
+        // --------------------------------
+
+        yield return StartCoroutine(
+            PerformAttack(
+                playerAnimator,
+                player,
+                monster,
+                false
+            )
         );
 
         if (fightFinished)
         {
-            return;
+            roundInProgress = false;
+            yield break;
         }
 
-        Attack(
-            monsterAnimator,
-            monster,
-            player
+        // --------------------------------
+        // MONSTER ATTACK
+        // --------------------------------
+
+        yield return StartCoroutine(
+            PerformAttack(
+                monsterAnimator,
+                monster,
+                player,
+                true
+            )
         );
+
+        if (!fightFinished)
+        {
+            nextRoundTime =
+                Time.time + roundCooldown;
+        }
+
+        roundInProgress = false;
     }
 
-    private void Attack(
+    private IEnumerator PerformAttack(
         Animator attackerAnimator,
         Health attacker,
-        Health defender
+        Health defender,
+        bool monsterAttacking
     )
     {
+        if (attacker == null || defender == null)
+        {
+            yield break;
+        }
+
+        if (!attacker.gameObject.activeSelf ||
+            !defender.gameObject.activeSelf)
+        {
+            yield break;
+        }
+
+        // --------------------------------
+        // WYBÓR ANIMACJI
+        // --------------------------------
+
+        string selectedTrigger =
+            AttackTrigger;
+
+        // Zombie losowo wybiera Attack albo Bite.
+        if (monsterAttacking)
+        {
+            bool useBite =
+                Random.value < 0.5f;
+
+            if (
+                useBite &&
+                HasTrigger(
+                    attackerAnimator,
+                    BiteTrigger
+                )
+            )
+            {
+                selectedTrigger =
+                    BiteTrigger;
+            }
+        }
+
+        // --------------------------------
+        // START ANIMACJI
+        // --------------------------------
+
         if (attackerAnimator != null)
         {
-            attackerAnimator.SetTrigger(
+            attackerAnimator.ResetTrigger(
                 AttackTrigger
             );
+
+            attackerAnimator.ResetTrigger(
+                BiteTrigger
+            );
+
+            attackerAnimator.SetTrigger(
+                selectedTrigger
+            );
         }
+
+        Debug.Log(
+            $"[COMBAT] {attacker.name} uses " +
+            $"{selectedTrigger}."
+        );
+
+        // --------------------------------
+        // OPÓŹNIENIE OBRAŻEŃ
+        // --------------------------------
+
+        yield return new WaitForSeconds(
+            damageDelay
+        );
+
+        if (fightFinished)
+        {
+            yield break;
+        }
+
+        if (!attacker.gameObject.activeSelf ||
+            !defender.gameObject.activeSelf)
+        {
+            yield break;
+        }
+
+        // --------------------------------
+        // DAMAGE
+        // --------------------------------
 
         float damage =
             Random.Range(
@@ -276,7 +383,23 @@ public class CombatManager : MonoBehaviour
         if (defender.IsDead())
         {
             FinishFight(defender);
+            yield break;
         }
+
+        // --------------------------------
+        // DOKOŃCZENIE ANIMACJI
+        // --------------------------------
+
+        float remainingTime =
+            Mathf.Max(
+                0f,
+                attackAnimationDuration -
+                damageDelay
+            );
+
+        yield return new WaitForSeconds(
+            remainingTime
+        );
     }
 
     private void FinishFight(
@@ -296,15 +419,33 @@ public class CombatManager : MonoBehaviour
 
         loser.gameObject.SetActive(false);
 
+        // --------------------------------
+        // PLAYER WYGRYWA
+        // --------------------------------
+
         if (playerWon)
         {
             StartCoroutine(
-                PlayerVictoryDance()
+                PlayerVictory()
+            );
+        }
+        else
+        {
+            // --------------------------------
+            // MONSTER WYGRYWA
+            // --------------------------------
+
+            StartCoroutine(
+                MonsterVictory()
             );
         }
     }
 
-    private IEnumerator PlayerVictoryDance()
+    // ====================================
+    // PLAYER VICTORY
+    // ====================================
+
+    private IEnumerator PlayerVictory()
     {
         if (player == null)
         {
@@ -314,8 +455,7 @@ public class CombatManager : MonoBehaviour
         if (playerAnimator == null)
         {
             Debug.LogWarning(
-                "[COMBAT] Player has no Animator. " +
-                "Victory dance cannot play."
+                "[COMBAT] Player has no Animator."
             );
 
             yield break;
@@ -326,8 +466,20 @@ public class CombatManager : MonoBehaviour
             playerClickController.enabled = false;
         }
 
+        // --------------------------------
+        // RESET
+        // --------------------------------
+
         playerAnimator.ResetTrigger(
             AttackTrigger
+        );
+
+        playerAnimator.ResetTrigger(
+            BiteTrigger
+        );
+
+        playerAnimator.ResetTrigger(
+            TauntTrigger
         );
 
         playerAnimator.SetBool(
@@ -337,16 +489,40 @@ public class CombatManager : MonoBehaviour
 
         playerAnimator.SetBool(
             DancingBool,
-            true
+            false
         );
 
-        Debug.Log(
-            $"[COMBAT] Victory dance started " +
-            $"for {victoryDanceDuration:F1} seconds."
-        );
+        // --------------------------------
+        // PLAYER TAUNT
+        // --------------------------------
+
+        if (HasTrigger(
+            playerAnimator,
+            TauntTrigger
+        ))
+        {
+            playerAnimator.SetTrigger(
+                TauntTrigger
+            );
+
+            Debug.Log(
+                "[COMBAT] Player victory Taunt started."
+            );
+        }
+        else
+        {
+            Debug.LogWarning(
+                "[COMBAT] Player Animator has no " +
+                "'Taunt' trigger."
+            );
+        }
 
         yield return new WaitForSeconds(
-            victoryDanceDuration
+            tauntDuration
+        );
+
+        playerAnimator.ResetTrigger(
+            TauntTrigger
         );
 
         playerAnimator.SetBool(
@@ -365,7 +541,101 @@ public class CombatManager : MonoBehaviour
         }
 
         Debug.Log(
-            "[COMBAT] Victory dance finished."
+            "[COMBAT] Player victory Taunt finished."
+        );
+    }
+
+    // ====================================
+    // MONSTER VICTORY
+    // ====================================
+
+    private IEnumerator MonsterVictory()
+    {
+        if (monster == null)
+        {
+            yield break;
+        }
+
+        if (monsterAnimator == null)
+        {
+            Debug.LogWarning(
+                "[COMBAT] Monster has no Animator."
+            );
+
+            yield break;
+        }
+
+        // --------------------------------
+        // RESET
+        // --------------------------------
+
+        monsterAnimator.ResetTrigger(
+            AttackTrigger
+        );
+
+        monsterAnimator.ResetTrigger(
+            BiteTrigger
+        );
+
+        monsterAnimator.ResetTrigger(
+            TauntTrigger
+        );
+
+        monsterAnimator.SetBool(
+            WalkingBool,
+            false
+        );
+
+        monsterAnimator.SetBool(
+            DancingBool,
+            false
+        );
+
+        // --------------------------------
+        // MONSTER TAUNT
+        // --------------------------------
+
+        if (HasTrigger(
+            monsterAnimator,
+            TauntTrigger
+        ))
+        {
+            monsterAnimator.SetTrigger(
+                TauntTrigger
+            );
+
+            Debug.Log(
+                "[COMBAT] Monster victory Taunt started."
+            );
+        }
+        else
+        {
+            Debug.LogWarning(
+                "[COMBAT] Monster Animator has no " +
+                "'Taunt' trigger."
+            );
+        }
+
+        yield return new WaitForSeconds(
+            tauntDuration
+        );
+
+        monsterAnimator.ResetTrigger(
+            TauntTrigger
+        );
+
+        monsterAnimator.SetBool(
+            DancingBool,
+            false
+        );
+
+        monsterAnimator.SetBool(
+            WalkingBool,
+            false
+        );
+
+        Debug.Log(
+            "[COMBAT] Monster victory Taunt finished."
         );
     }
 
@@ -378,6 +648,7 @@ public class CombatManager : MonoBehaviour
         monster = monsterHealth;
 
         fightFinished = false;
+        roundInProgress = false;
 
         playerAnimator =
             FindAttackAnimator(

@@ -7,13 +7,20 @@ using UnityEngine.InputSystem;
 public class SimpleAgent : Agent
 {
     public Transform target;
-    public float moveSpeed = 2f;
+    public float moveSpeed = 1f;
     public float attackRange = 1.5f;
 
     [Header("Rotation")]
     public float rotationSpeed = 10f;
 
     private float previousDistanceToTarget;
+    private Animator animator;
+
+    public override void Initialize()
+    {
+        animator =
+            GetComponentInChildren<Animator>();
+    }
 
     public override void OnEpisodeBegin()
     {
@@ -25,7 +32,15 @@ public class SimpleAgent : Agent
     {
         // Reset agenta.
         transform.localPosition =
-            new Vector3(5f, 0.5f, 5f);
+            new Vector3(5f, 0f, 5f);
+
+        if (animator != null)
+        {
+            animator.SetBool(
+                "IsWalking",
+                false
+            );
+        }
 
         if (target == null)
             return;
@@ -92,20 +107,6 @@ public class SimpleAgent : Agent
                 moveZ
             );
 
-        // Obracaj potwora w kierunku ruchu.
-        if (movement.sqrMagnitude > 0.01f)
-        {
-            Quaternion targetRotation =
-                Quaternion.LookRotation(movement);
-
-            transform.rotation =
-                Quaternion.Slerp(
-                    transform.rotation,
-                    targetRotation,
-                    rotationSpeed * Time.deltaTime
-                );
-        }
-
         // Aktualny dystans.
         float distanceToTarget =
             Vector3.Distance(
@@ -113,16 +114,70 @@ public class SimpleAgent : Agent
                 target.localPosition
             );
 
-        // Nie wchodź w Playera.
+        // --------------------------------
+        // RUCH
+        // --------------------------------
+
+        // Ruch tylko jeśli jesteśmy poza
+        // zasięgiem ataku.
         if (distanceToTarget > attackRange)
         {
+            Vector3 oldPosition =
+                transform.localPosition;
+
             transform.localPosition +=
                 movement *
                 moveSpeed *
                 Time.deltaTime;
+
+            // Obracaj tylko podczas rzeczywistego ruchu.
+            if (movement.sqrMagnitude > 0.01f)
+            {
+                Quaternion targetRotation =
+                    Quaternion.LookRotation(
+                        movement
+                    );
+
+                transform.rotation =
+                    Quaternion.Slerp(
+                        transform.rotation,
+                        targetRotation,
+                        rotationSpeed *
+                        Time.deltaTime
+                    );
+            }
+
+            bool isActuallyMoving =
+                Vector3.Distance(
+                    oldPosition,
+                    transform.localPosition
+                ) > 0.0001f;
+
+            if (animator != null)
+            {
+                animator.SetBool(
+                    "IsWalking",
+                    isActuallyMoving
+                );
+            }
+        }
+        else
+        {
+            // W zasięgu ataku:
+            // zatrzymaj ruch i chodzenie.
+            if (animator != null)
+            {
+                animator.SetBool(
+                    "IsWalking",
+                    false
+                );
+            }
         }
 
-        // Granice areny.
+        // --------------------------------
+        // GRANICE ARENY
+        // --------------------------------
+
         Vector3 position =
             transform.localPosition;
 
@@ -143,14 +198,20 @@ public class SimpleAgent : Agent
         transform.localPosition =
             position;
 
-        // Dystans po ruchu.
+        // --------------------------------
+        // DYSTANS PO RUCHU
+        // --------------------------------
+
         distanceToTarget =
             Vector3.Distance(
                 transform.localPosition,
                 target.localPosition
             );
 
-        // Nagroda za zbliżanie się.
+        // --------------------------------
+        // NAGRODA ZA ZBLIŻANIE
+        // --------------------------------
+
         float distanceReward =
             previousDistanceToTarget -
             distanceToTarget;
@@ -162,10 +223,16 @@ public class SimpleAgent : Agent
         previousDistanceToTarget =
             distanceToTarget;
 
-        // Mała kara za upływ czasu.
+        // --------------------------------
+        // KARA ZA CZAS
+        // --------------------------------
+
         AddReward(-0.001f);
 
-        // Nagroda za pozostawanie w zasięgu.
+        // --------------------------------
+        // NAGRODA ZA ZASIĘG ATAKU
+        // --------------------------------
+
         if (distanceToTarget <= attackRange)
         {
             AddReward(0.001f);
