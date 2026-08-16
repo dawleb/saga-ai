@@ -26,6 +26,10 @@ public class CombatManager : MonoBehaviour
     [Header("Combat Rotation")]
     public float combatRotationSpeed = 10f;
 
+    [Header("Monster Attacks")]
+    [Range(0f, 1f)]
+    public float monsterBiteChance = 0.5f;
+
     [Header("Victory")]
     public float tauntDuration = 3f;
 
@@ -267,6 +271,10 @@ public class CombatManager : MonoBehaviour
                 monster.transform.position
             );
 
+        // --------------------------------
+        // ROTATION
+        // --------------------------------
+
         if (distance <= attackRange)
         {
             RotateTowardsOpponent(
@@ -279,6 +287,10 @@ public class CombatManager : MonoBehaviour
                 player.transform
             );
         }
+
+        // --------------------------------
+        // COMBAT
+        // --------------------------------
 
         if (roundInProgress)
         {
@@ -347,6 +359,10 @@ public class CombatManager : MonoBehaviour
     {
         roundInProgress = true;
 
+        // --------------------------------
+        // PLAYER ATTACK
+        // --------------------------------
+
         yield return StartCoroutine(
             PerformAttack(
                 playerAnimator,
@@ -361,6 +377,10 @@ public class CombatManager : MonoBehaviour
             roundInProgress = false;
             yield break;
         }
+
+        // --------------------------------
+        // MONSTER ATTACK
+        // --------------------------------
 
         yield return StartCoroutine(
             PerformAttack(
@@ -407,10 +427,18 @@ public class CombatManager : MonoBehaviour
             yield break;
         }
 
+        // --------------------------------
+        // FACE OPPONENT
+        // --------------------------------
+
         RotateTowardsOpponent(
             attacker.transform,
             defender.transform
         );
+
+        // --------------------------------
+        // SELECT ATTACK
+        // --------------------------------
 
         string selectedTrigger =
             AttackTrigger;
@@ -429,10 +457,49 @@ public class CombatManager : MonoBehaviour
                     AttackTrigger
                 );
 
-            if (hasBite)
+            // --------------------------------
+            // ZOMBIE ATTACK SELECTION
+            // --------------------------------
+            //
+            // Jeśli zombie ma oba triggery,
+            // losujemy pomiędzy Bite i Attack.
+            //
+            // monsterBiteChance:
+            //
+            // 1.0 = zawsze Bite
+            // 0.5 = 50% Bite / 50% Attack
+            // 0.0 = zawsze Attack
+
+            if (hasBite && hasAttack)
+            {
+                if (
+                    Random.value <
+                    monsterBiteChance
+                )
+                {
+                    selectedTrigger =
+                        BiteTrigger;
+                }
+                else
+                {
+                    selectedTrigger =
+                        AttackTrigger;
+                }
+
+                Debug.Log(
+                    $"[COMBAT] Zombie randomly selected " +
+                    $"{selectedTrigger}."
+                );
+            }
+            else if (hasBite)
             {
                 selectedTrigger =
                     BiteTrigger;
+
+                Debug.LogWarning(
+                    "[COMBAT] Zombie has only Bite trigger. " +
+                    "Using Bite."
+                );
             }
             else if (hasAttack)
             {
@@ -440,8 +507,8 @@ public class CombatManager : MonoBehaviour
                     AttackTrigger;
 
                 Debug.LogWarning(
-                    "[COMBAT] Zombie has no Bite trigger. " +
-                    "Falling back to Attack."
+                    "[COMBAT] Zombie has only Attack trigger. " +
+                    "Using Attack."
                 );
             }
             else
@@ -454,6 +521,10 @@ public class CombatManager : MonoBehaviour
                 yield break;
             }
         }
+
+        // --------------------------------
+        // START ATTACK
+        // --------------------------------
 
         if (attackerAnimator != null)
         {
@@ -488,6 +559,10 @@ public class CombatManager : MonoBehaviour
             }
         }
 
+        // --------------------------------
+        // DAMAGE DELAY
+        // --------------------------------
+
         yield return new WaitForSeconds(
             damageDelay
         );
@@ -507,6 +582,10 @@ public class CombatManager : MonoBehaviour
         {
             yield break;
         }
+
+        // --------------------------------
+        // DAMAGE
+        // --------------------------------
 
         float damage =
             Random.Range(
@@ -532,6 +611,10 @@ public class CombatManager : MonoBehaviour
             $"{defender.CurrentHealth:F1}"
         );
 
+        // --------------------------------
+        // DEATH
+        // --------------------------------
+
         if (defender.IsDead() ||
             defender.CurrentHealth <= 0f)
         {
@@ -541,6 +624,10 @@ public class CombatManager : MonoBehaviour
 
             yield break;
         }
+
+        // --------------------------------
+        // FINISH ATTACK
+        // --------------------------------
 
         float remainingTime =
             Mathf.Max(
@@ -646,6 +733,55 @@ public class CombatManager : MonoBehaviour
             return;
         }
 
+        // --------------------------------
+        // FIND HEALTH BAR ANCHOR
+        // --------------------------------
+
+        Transform anchor =
+            loser.transform.Find(
+                "HealthBarAnchor"
+            );
+
+        // --------------------------------
+        // IF ANCHOR IS NOT DIRECT CHILD
+        // --------------------------------
+
+        if (anchor == null)
+        {
+            Transform[] children =
+                loser.GetComponentsInChildren<Transform>(
+                    true
+                );
+
+            foreach (Transform child in children)
+            {
+                if (child.name == "HealthBarAnchor")
+                {
+                    anchor = child;
+                    break;
+                }
+            }
+        }
+
+        // --------------------------------
+        // DISABLE WHOLE HEALTH BAR
+        // --------------------------------
+
+        if (anchor != null)
+        {
+            anchor.gameObject.SetActive(false);
+
+            Debug.Log(
+                $"[COMBAT] HealthBarAnchor disabled for {loser.name}."
+            );
+
+            return;
+        }
+
+        // --------------------------------
+        // FALLBACK
+        // --------------------------------
+
         HealthBar[] healthBars =
             loser.GetComponentsInChildren<HealthBar>(
                 true
@@ -658,15 +794,10 @@ public class CombatManager : MonoBehaviour
                 continue;
             }
 
-            // IMPORTANT:
-            // Do not only disable the HealthBar component.
-            // The component creates a separate World Space Canvas.
-            // We must disable that generated Canvas too.
-
-            healthBar.HideBar();
+            healthBar.gameObject.SetActive(false);
 
             Debug.Log(
-                $"[COMBAT] Health bar hidden for {loser.name}."
+                $"[COMBAT] HealthBar disabled for {loser.name}."
             );
         }
     }
@@ -698,8 +829,16 @@ public class CombatManager : MonoBehaviour
             return;
         }
 
+        // --------------------------------
+        // NO ROOT MOTION
+        // --------------------------------
+
         loserAnimator.applyRootMotion =
             false;
+
+        // --------------------------------
+        // CLEAR COMBAT ANIMATION
+        // --------------------------------
 
         loserAnimator.ResetTrigger(
             AttackTrigger
@@ -723,6 +862,10 @@ public class CombatManager : MonoBehaviour
             false
         );
 
+        // --------------------------------
+        // DEATH ANIMATION
+        // --------------------------------
+
         if (HasTrigger(
             loserAnimator,
             DeathTrigger
@@ -743,6 +886,10 @@ public class CombatManager : MonoBehaviour
                 "'Death' trigger."
             );
         }
+
+        // --------------------------------
+        // STOP PLAYER CONTROL
+        // --------------------------------
 
         if (loser == player)
         {
