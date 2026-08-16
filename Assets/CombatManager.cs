@@ -21,7 +21,10 @@ public class CombatManager : MonoBehaviour
     public float damageMax = 15f;
 
     [Header("Range")]
-    public float attackRange = 1.5f;
+    public float attackRange = 1.1f;
+
+    [Header("Combat Rotation")]
+    public float combatRotationSpeed = 10f;
 
     [Header("Victory")]
     public float tauntDuration = 3f;
@@ -181,11 +184,6 @@ public class CombatManager : MonoBehaviour
             return;
         }
 
-        if (roundInProgress)
-        {
-            return;
-        }
-
         if (player == null || monster == null)
         {
             return;
@@ -207,6 +205,32 @@ public class CombatManager : MonoBehaviour
                 monster.transform.position
             );
 
+        // --------------------------------
+        // OBRÓT W STRONĘ PRZECIWNIKA
+        // --------------------------------
+
+        if (distance <= attackRange)
+        {
+            RotateTowardsOpponent(
+                player.transform,
+                monster.transform
+            );
+
+            RotateTowardsOpponent(
+                monster.transform,
+                player.transform
+            );
+        }
+
+        // --------------------------------
+        // WALKA
+        // --------------------------------
+
+        if (roundInProgress)
+        {
+            return;
+        }
+
         if (distance > attackRange)
         {
             return;
@@ -220,6 +244,42 @@ public class CombatManager : MonoBehaviour
         StartCoroutine(
             ResolveRound()
         );
+    }
+
+    private void RotateTowardsOpponent(
+        Transform fighter,
+        Transform opponent
+    )
+    {
+        if (fighter == null || opponent == null)
+        {
+            return;
+        }
+
+        Vector3 direction =
+            opponent.position -
+            fighter.position;
+
+        // Nie pozwalamy obracać się góra/dół.
+        direction.y = 0f;
+
+        if (direction.sqrMagnitude < 0.001f)
+        {
+            return;
+        }
+
+        Quaternion targetRotation =
+            Quaternion.LookRotation(
+                direction
+            );
+
+        fighter.rotation =
+            Quaternion.Slerp(
+                fighter.rotation,
+                targetRotation,
+                combatRotationSpeed *
+                Time.deltaTime
+            );
     }
 
     private IEnumerator ResolveRound()
@@ -284,6 +344,15 @@ public class CombatManager : MonoBehaviour
         {
             yield break;
         }
+
+        // --------------------------------
+        // USTAWIENIE W STRONĘ PRZECIWNIKA
+        // --------------------------------
+
+        RotateTowardsOpponent(
+            attacker.transform,
+            defender.transform
+        );
 
         // --------------------------------
         // WYBÓR ANIMACJI
@@ -466,10 +535,6 @@ public class CombatManager : MonoBehaviour
             playerClickController.enabled = false;
         }
 
-        // --------------------------------
-        // RESET
-        // --------------------------------
-
         playerAnimator.ResetTrigger(
             AttackTrigger
         );
@@ -491,10 +556,6 @@ public class CombatManager : MonoBehaviour
             DancingBool,
             false
         );
-
-        // --------------------------------
-        // PLAYER TAUNT
-        // --------------------------------
 
         if (HasTrigger(
             playerAnimator,
@@ -565,10 +626,6 @@ public class CombatManager : MonoBehaviour
             yield break;
         }
 
-        // --------------------------------
-        // RESET
-        // --------------------------------
-
         monsterAnimator.ResetTrigger(
             AttackTrigger
         );
@@ -590,10 +647,6 @@ public class CombatManager : MonoBehaviour
             DancingBool,
             false
         );
-
-        // --------------------------------
-        // MONSTER TAUNT
-        // --------------------------------
 
         if (HasTrigger(
             monsterAnimator,

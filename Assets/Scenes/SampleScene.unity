@@ -465,8 +465,8 @@ Rigidbody:
   m_ImplicitTensor: 1
   m_UseGravity: 1
   m_IsKinematic: 0
-  m_Interpolate: 0
-  m_Constraints: 48
+  m_Interpolate: 1
+  m_Constraints: 80
   m_CollisionDetection: 0
 --- !u!114 &466695714
 MonoBehaviour:
@@ -649,10 +649,13 @@ MonoBehaviour:
   player: {fileID: 0}
   monster: {fileID: 0}
   roundCooldown: 1
+  attackAnimationDuration: 0.8
+  damageDelay: 0.35
   damageMin: 8
   damageMax: 15
   attackRange: 1.5
-  victoryDanceDuration: 10
+  combatRotationSpeed: 10
+  tauntDuration: 3
 --- !u!4 &746929590
 Transform:
   m_ObjectHideFlags: 0
