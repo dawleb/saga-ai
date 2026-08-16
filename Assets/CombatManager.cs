@@ -31,6 +31,7 @@ public class CombatManager : MonoBehaviour
 
     private const string AttackTrigger = "Attack";
     private const string BiteTrigger = "Bite";
+    private const string DeathTrigger = "Death";
     private const string TauntTrigger = "Taunt";
 
     private const string DancingBool = "IsDancing";
@@ -52,42 +53,19 @@ public class CombatManager : MonoBehaviour
 
     private void Start()
     {
-        if (player == null || monster == null)
-        {
-            Health[] healthObjects =
-                FindObjectsOfType<Health>();
-
-            foreach (Health health in healthObjects)
-            {
-                SimpleAgent agent =
-                    health.GetComponent<SimpleAgent>();
-
-                if (agent != null)
-                {
-                    monster = health;
-
-                    if (agent.target != null)
-                    {
-                        player =
-                            agent.target.GetComponent<Health>();
-                    }
-
-                    break;
-                }
-            }
-        }
+        FindCombatants();
 
         if (player == null)
         {
             Debug.LogError(
-                "[COMBAT] Player Health nie został znaleziony!"
+                "[COMBAT] Player Health not found!"
             );
         }
 
         if (monster == null)
         {
             Debug.LogError(
-                "[COMBAT] Monster Health nie został znaleziony!"
+                "[COMBAT] Monster Health not found!"
             );
         }
 
@@ -103,11 +81,7 @@ public class CombatManager : MonoBehaviour
                 "Monster"
             );
 
-        if (player != null)
-        {
-            playerClickController =
-                player.GetComponent<PlayerClickController>();
-        }
+        FindPlayerClickController();
 
         if (player != null && monster != null)
         {
@@ -124,6 +98,70 @@ public class CombatManager : MonoBehaviour
         }
     }
 
+    // ====================================
+    // FIND COMBATANTS
+    // ====================================
+
+    private void FindCombatants()
+    {
+        Health[] healthObjects =
+            FindObjectsOfType<Health>();
+
+        foreach (Health health in healthObjects)
+        {
+            if (health == null)
+            {
+                continue;
+            }
+
+            SimpleAgent agent =
+                health.GetComponentInParent<SimpleAgent>();
+
+            if (agent == null)
+            {
+                continue;
+            }
+
+            monster = health;
+
+            if (agent.target != null)
+            {
+                Health targetHealth =
+                    agent.target.GetComponentInChildren<Health>();
+
+                if (targetHealth != null)
+                {
+                    player = targetHealth;
+                }
+            }
+
+            break;
+        }
+    }
+
+    private void FindPlayerClickController()
+    {
+        if (player == null)
+        {
+            return;
+        }
+
+        playerClickController =
+            player.GetComponent<PlayerClickController>();
+
+        if (playerClickController == null)
+        {
+            playerClickController =
+                player.GetComponentInParent<PlayerClickController>();
+        }
+
+        if (playerClickController == null)
+        {
+            playerClickController =
+                player.GetComponentInChildren<PlayerClickController>();
+        }
+    }
+
     private Animator FindAttackAnimator(
         Health combatant,
         string label
@@ -136,6 +174,12 @@ public class CombatManager : MonoBehaviour
 
         Animator animator =
             combatant.GetComponentInChildren<Animator>();
+
+        if (animator == null)
+        {
+            animator =
+                combatant.GetComponentInParent<Animator>();
+        }
 
         if (animator == null)
         {
@@ -177,6 +221,10 @@ public class CombatManager : MonoBehaviour
         return false;
     }
 
+    // ====================================
+    // UPDATE
+    // ====================================
+
     private void Update()
     {
         if (fightFinished)
@@ -189,12 +237,17 @@ public class CombatManager : MonoBehaviour
             return;
         }
 
-        if (!player.gameObject.activeSelf)
+        if (!player.gameObject.activeInHierarchy)
         {
             return;
         }
 
-        if (!monster.gameObject.activeSelf)
+        if (!monster.gameObject.activeInHierarchy)
+        {
+            return;
+        }
+
+        if (player.IsDead() || monster.IsDead())
         {
             return;
         }
@@ -206,7 +259,7 @@ public class CombatManager : MonoBehaviour
             );
 
         // --------------------------------
-        // OBRÓT W STRONĘ PRZECIWNIKA
+        // ROTATION
         // --------------------------------
 
         if (distance <= attackRange)
@@ -223,7 +276,7 @@ public class CombatManager : MonoBehaviour
         }
 
         // --------------------------------
-        // WALKA
+        // COMBAT
         // --------------------------------
 
         if (roundInProgress)
@@ -246,6 +299,10 @@ public class CombatManager : MonoBehaviour
         );
     }
 
+    // ====================================
+    // ROTATION
+    // ====================================
+
     private void RotateTowardsOpponent(
         Transform fighter,
         Transform opponent
@@ -260,7 +317,6 @@ public class CombatManager : MonoBehaviour
             opponent.position -
             fighter.position;
 
-        // Nie pozwalamy obracać się góra/dół.
         direction.y = 0f;
 
         if (direction.sqrMagnitude < 0.001f)
@@ -281,6 +337,10 @@ public class CombatManager : MonoBehaviour
                 Time.deltaTime
             );
     }
+
+    // ====================================
+    // RESOLVE ROUND
+    // ====================================
 
     private IEnumerator ResolveRound()
     {
@@ -327,6 +387,10 @@ public class CombatManager : MonoBehaviour
         roundInProgress = false;
     }
 
+    // ====================================
+    // PERFORM ATTACK
+    // ====================================
+
     private IEnumerator PerformAttack(
         Animator attackerAnimator,
         Health attacker,
@@ -339,14 +403,19 @@ public class CombatManager : MonoBehaviour
             yield break;
         }
 
-        if (!attacker.gameObject.activeSelf ||
-            !defender.gameObject.activeSelf)
+        if (!attacker.gameObject.activeInHierarchy ||
+            !defender.gameObject.activeInHierarchy)
+        {
+            yield break;
+        }
+
+        if (attacker.IsDead() || defender.IsDead())
         {
             yield break;
         }
 
         // --------------------------------
-        // USTAWIENIE W STRONĘ PRZECIWNIKA
+        // FACE OPPONENT
         // --------------------------------
 
         RotateTowardsOpponent(
@@ -355,13 +424,12 @@ public class CombatManager : MonoBehaviour
         );
 
         // --------------------------------
-        // WYBÓR ANIMACJI
+        // SELECT ATTACK
         // --------------------------------
 
         string selectedTrigger =
             AttackTrigger;
 
-        // Zombie losowo wybiera Attack albo Bite.
         if (monsterAttacking)
         {
             bool useBite =
@@ -381,7 +449,7 @@ public class CombatManager : MonoBehaviour
         }
 
         // --------------------------------
-        // START ANIMACJI
+        // START ATTACK ANIMATION
         // --------------------------------
 
         if (attackerAnimator != null)
@@ -394,9 +462,15 @@ public class CombatManager : MonoBehaviour
                 BiteTrigger
             );
 
-            attackerAnimator.SetTrigger(
+            if (HasTrigger(
+                attackerAnimator,
                 selectedTrigger
-            );
+            ))
+            {
+                attackerAnimator.SetTrigger(
+                    selectedTrigger
+                );
+            }
         }
 
         Debug.Log(
@@ -405,7 +479,7 @@ public class CombatManager : MonoBehaviour
         );
 
         // --------------------------------
-        // OPÓŹNIENIE OBRAŻEŃ
+        // DAMAGE DELAY
         // --------------------------------
 
         yield return new WaitForSeconds(
@@ -417,8 +491,13 @@ public class CombatManager : MonoBehaviour
             yield break;
         }
 
-        if (!attacker.gameObject.activeSelf ||
-            !defender.gameObject.activeSelf)
+        if (!attacker.gameObject.activeInHierarchy ||
+            !defender.gameObject.activeInHierarchy)
+        {
+            yield break;
+        }
+
+        if (attacker.IsDead() || defender.IsDead())
         {
             yield break;
         }
@@ -436,7 +515,9 @@ public class CombatManager : MonoBehaviour
         float oldHealth =
             defender.CurrentHealth;
 
-        defender.TakeDamage(damage);
+        defender.TakeDamage(
+            damage
+        );
 
         Debug.Log(
             $"[ROUND] {attacker.name} attacks " +
@@ -449,14 +530,21 @@ public class CombatManager : MonoBehaviour
             $"{defender.CurrentHealth:F1}"
         );
 
+        // --------------------------------
+        // DEATH
+        // --------------------------------
+
         if (defender.IsDead())
         {
-            FinishFight(defender);
+            FinishFight(
+                defender
+            );
+
             yield break;
         }
 
         // --------------------------------
-        // DOKOŃCZENIE ANIMACJI
+        // FINISH ATTACK ANIMATION
         // --------------------------------
 
         float remainingTime =
@@ -471,10 +559,24 @@ public class CombatManager : MonoBehaviour
         );
     }
 
+    // ====================================
+    // FINISH FIGHT
+    // ====================================
+
     private void FinishFight(
         Health loser
     )
     {
+        if (fightFinished)
+        {
+            return;
+        }
+
+        if (loser == null)
+        {
+            return;
+        }
+
         fightFinished = true;
 
         bool playerWon =
@@ -486,10 +588,24 @@ public class CombatManager : MonoBehaviour
                 : "[COMBAT] MONSTER WINS!"
         );
 
-        loser.gameObject.SetActive(false);
+        // --------------------------------
+        // HIDE LOSER HEALTH BAR
+        // --------------------------------
+
+        HideHealthBar(
+            loser
+        );
 
         // --------------------------------
-        // PLAYER WYGRYWA
+        // DEATH
+        // --------------------------------
+
+        PlayDeath(
+            loser
+        );
+
+        // --------------------------------
+        // VICTORY
         // --------------------------------
 
         if (playerWon)
@@ -500,13 +616,190 @@ public class CombatManager : MonoBehaviour
         }
         else
         {
-            // --------------------------------
-            // MONSTER WYGRYWA
-            // --------------------------------
-
             StartCoroutine(
                 MonsterVictory()
             );
+        }
+    }
+
+    // ====================================
+    // HIDE HEALTH BAR
+    // ====================================
+
+    private void HideHealthBar(
+        Health loser
+    )
+    {
+        if (loser == null)
+        {
+            return;
+        }
+
+        HealthBar[] healthBars =
+            loser.GetComponentsInChildren<HealthBar>(
+                true
+            );
+
+        foreach (HealthBar healthBar in healthBars)
+        {
+            if (healthBar == null)
+            {
+                continue;
+            }
+
+            healthBar.gameObject.SetActive(false);
+
+            Debug.Log(
+                $"[COMBAT] Health bar hidden for {loser.name}."
+            );
+        }
+
+        Canvas[] canvases =
+            loser.GetComponentsInChildren<Canvas>(
+                true
+            );
+
+        foreach (Canvas canvas in canvases)
+        {
+            if (canvas == null)
+            {
+                continue;
+            }
+
+            HealthBar healthBar =
+                canvas.GetComponentInParent<HealthBar>();
+
+            if (healthBar != null)
+            {
+                continue;
+            }
+        }
+    }
+
+    // ====================================
+    // DEATH
+    // ====================================
+
+    private void PlayDeath(
+        Health loser
+    )
+    {
+        if (loser == null)
+        {
+            return;
+        }
+
+        Animator loserAnimator =
+            loser == player
+                ? playerAnimator
+                : monsterAnimator;
+
+        // --------------------------------
+        // STOP MONSTER AGENT
+        // --------------------------------
+
+        if (loser == monster)
+        {
+            SimpleAgent agent =
+                monster.GetComponentInParent<SimpleAgent>();
+
+            if (agent != null)
+            {
+                agent.enabled = false;
+            }
+        }
+
+        // --------------------------------
+        // STOP RIGIDBODY
+        // --------------------------------
+
+        Rigidbody[] rigidbodies =
+            loser.GetComponentsInChildren<Rigidbody>();
+
+        foreach (Rigidbody rb in rigidbodies)
+        {
+            rb.linearVelocity =
+                Vector3.zero;
+
+            rb.angularVelocity =
+                Vector3.zero;
+
+            rb.isKinematic = true;
+            rb.useGravity = false;
+        }
+
+        // --------------------------------
+        // ANIMATOR
+        // --------------------------------
+
+        if (loserAnimator == null)
+        {
+            Debug.LogWarning(
+                "[COMBAT] Dead character has no Animator."
+            );
+
+            return;
+        }
+
+        loserAnimator.ResetTrigger(
+            AttackTrigger
+        );
+
+        loserAnimator.ResetTrigger(
+            BiteTrigger
+        );
+
+        loserAnimator.ResetTrigger(
+            TauntTrigger
+        );
+
+        loserAnimator.SetBool(
+            WalkingBool,
+            false
+        );
+
+        loserAnimator.SetBool(
+            DancingBool,
+            false
+        );
+
+        // --------------------------------
+        // DEATH ANIMATION
+        // --------------------------------
+
+        if (HasTrigger(
+            loserAnimator,
+            DeathTrigger
+        ))
+        {
+            loserAnimator.SetTrigger(
+                DeathTrigger
+            );
+
+            Debug.Log(
+                $"[COMBAT] {loser.name} Death started."
+            );
+        }
+        else
+        {
+            Debug.LogWarning(
+                $"[COMBAT] {loser.name} Animator has no " +
+                "'Death' trigger."
+            );
+        }
+
+        // --------------------------------
+        // STOP PLAYER CONTROL
+        // --------------------------------
+
+        if (loser == player)
+        {
+            FindPlayerClickController();
+
+            if (playerClickController != null)
+            {
+                playerClickController.enabled = false;
+            }
         }
     }
 
@@ -692,6 +985,10 @@ public class CombatManager : MonoBehaviour
         );
     }
 
+    // ====================================
+    // REGISTER COMBATANTS
+    // ====================================
+
     public void RegisterCombatants(
         Health playerHealth,
         Health monsterHealth
@@ -715,11 +1012,7 @@ public class CombatManager : MonoBehaviour
                 "Monster"
             );
 
-        if (player != null)
-        {
-            playerClickController =
-                player.GetComponent<PlayerClickController>();
-        }
+        FindPlayerClickController();
 
         nextRoundTime =
             Time.time + 0.5f;
