@@ -655,6 +655,7 @@ MonoBehaviour:
   damageMax: 15
   attackRange: 1.5
   combatRotationSpeed: 10
+  monsterBiteChance: 0.5
   tauntDuration: 3
 --- !u!4 &746929590
 Transform:
@@ -1969,7 +1970,7 @@ PrefabInstance:
     - target: {fileID: 5866666021909216657, guid: 63dc5e1be5f80dc42a68625bcbc5ce38, type: 3}
       propertyPath: m_Controller
       value: 
-      objectReference: {fileID: 9100000, guid: 4e26494cbf5db1c4fab30fc92cb6f72f, type: 2}
+      objectReference: {fileID: 9100000, guid: 5879f37a990502d44874535c1fcc8ebb, type: 2}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects:
