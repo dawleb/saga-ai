@@ -33,10 +33,16 @@ public class CombatManager : MonoBehaviour
     [Header("Victory")]
     public float tauntDuration = 3f;
 
+    // Nazwy parametrów w Animatorze
     private const string AttackTrigger = "Attack";
     private const string BiteTrigger = "Bite";
-    private const string DeathTrigger = "Death";
     private const string TauntTrigger = "Taunt";
+
+    private const string GetDamageTrigger = "GetDamage";
+    private const string GetDamageIndexInt = "GetDamageIndex"; // Parameter Int (0 lub 1)
+
+    private const string DeathTrigger = "Death";
+    private const string DeathIndexInt = "DeathIndex";         // Parameter Int (0 lub 1)
 
     private const string DancingBool = "IsDancing";
     private const string WalkingBool = "IsWalking";
@@ -60,80 +66,39 @@ public class CombatManager : MonoBehaviour
     {
         FindCombatants();
 
-        if (player == null)
-        {
-            Debug.LogError(
-                "[COMBAT] Player Health not found!"
-            );
-        }
+        if (player == null) Debug.LogError("[COMBAT] Player Health not found!");
+        if (monster == null) Debug.LogError("[COMBAT] Monster Health not found!");
 
-        if (monster == null)
-        {
-            Debug.LogError(
-                "[COMBAT] Monster Health not found!"
-            );
-        }
-
-        playerAnimator =
-            FindAttackAnimator(
-                player,
-                "Player"
-            );
-
-        monsterAnimator =
-            FindAttackAnimator(
-                monster,
-                "Monster"
-            );
+        playerAnimator = FindAttackAnimator(player, "Player");
+        monsterAnimator = FindAttackAnimator(monster, "Monster");
 
         FindPlayerClickController();
 
         if (player != null && monster != null)
         {
-            Debug.Log(
-                $"[COMBAT] Player HP: {player.CurrentHealth}"
-            );
+            Debug.Log($"[COMBAT] Player HP: {player.CurrentHealth}");
+            Debug.Log($"[COMBAT] Monster HP: {monster.CurrentHealth}");
 
-            Debug.Log(
-                $"[COMBAT] Monster HP: {monster.CurrentHealth}"
-            );
-
-            nextRoundTime =
-                Time.time + 0.5f;
+            nextRoundTime = Time.time + 0.5f;
         }
     }
 
-    // ====================================
-    // FIND COMBATANTS
-    // ====================================
-
     private void FindCombatants()
     {
-        Health[] healthObjects =
-            FindObjectsOfType<Health>();
+        Health[] healthObjects = FindObjectsOfType<Health>();
 
         foreach (Health health in healthObjects)
         {
-            if (health == null)
-            {
-                continue;
-            }
+            if (health == null) continue;
 
-            SimpleAgent agent =
-                health.GetComponentInParent<SimpleAgent>();
-
-            if (agent == null)
-            {
-                continue;
-            }
+            SimpleAgent agent = health.GetComponentInParent<SimpleAgent>();
+            if (agent == null) continue;
 
             monster = health;
 
             if (agent.target != null)
             {
-                Health targetHealth =
-                    agent.target.GetComponentInChildren<Health>();
-
+                Health targetHealth = agent.target.GetComponentInChildren<Health>();
                 if (targetHealth != null)
                 {
                     player = targetHealth;
@@ -146,86 +111,36 @@ public class CombatManager : MonoBehaviour
 
     private void FindPlayerClickController()
     {
-        if (player == null)
-        {
-            return;
-        }
+        if (player == null) return;
 
-        playerClickController =
-            player.GetComponent<PlayerClickController>();
-
-        if (playerClickController == null)
-        {
-            playerClickController =
-                player.GetComponentInParent<PlayerClickController>();
-        }
-
-        if (playerClickController == null)
-        {
-            playerClickController =
-                player.GetComponentInChildren<PlayerClickController>();
-        }
+        playerClickController = player.GetComponent<PlayerClickController>();
+        if (playerClickController == null) playerClickController = player.GetComponentInParent<PlayerClickController>();
+        if (playerClickController == null) playerClickController = player.GetComponentInChildren<PlayerClickController>();
     }
 
-    // ====================================
-    // FIND ANIMATOR
-    // ====================================
-
-    private Animator FindAttackAnimator(
-        Health combatant,
-        string label
-    )
+    private Animator FindAttackAnimator(Health combatant, string label)
     {
-        if (combatant == null)
-        {
-            return null;
-        }
+        if (combatant == null) return null;
 
-        Animator animator =
-            combatant.GetComponentInChildren<Animator>();
+        Animator animator = combatant.GetComponentInChildren<Animator>();
+        if (animator == null) animator = combatant.GetComponentInParent<Animator>();
 
         if (animator == null)
         {
-            animator =
-                combatant.GetComponentInParent<Animator>();
-        }
-
-        if (animator == null)
-        {
-            Debug.LogWarning(
-                $"[COMBAT] {label} has no Animator."
-            );
-
+            Debug.LogWarning($"[COMBAT] {label} has no Animator.");
             return null;
         }
 
         return animator;
     }
 
-    // ====================================
-    // CHECK ANIMATOR PARAMETER
-    // ====================================
-
-    private static bool HasTrigger(
-        Animator animator,
-        string triggerName
-    )
+    private static bool HasParameter(Animator animator, string paramName, AnimatorControllerParameterType type)
     {
-        if (animator == null)
-        {
-            return false;
-        }
+        if (animator == null) return false;
 
-        foreach (
-            AnimatorControllerParameter parameter
-            in animator.parameters
-        )
+        foreach (AnimatorControllerParameter parameter in animator.parameters)
         {
-            if (
-                parameter.type ==
-                AnimatorControllerParameterType.Trigger &&
-                parameter.name == triggerName
-            )
+            if (parameter.type == type && parameter.name == paramName)
             {
                 return true;
             }
@@ -234,143 +149,43 @@ public class CombatManager : MonoBehaviour
         return false;
     }
 
-    // ====================================
-    // UPDATE
-    // ====================================
-
     private void Update()
     {
-        if (fightFinished)
-        {
-            return;
-        }
+        if (fightFinished || player == null || monster == null) return;
+        if (!player.gameObject.activeInHierarchy || !monster.gameObject.activeInHierarchy) return;
+        if (player.IsDead() || monster.IsDead()) return;
 
-        if (player == null || monster == null)
-        {
-            return;
-        }
-
-        if (!player.gameObject.activeInHierarchy)
-        {
-            return;
-        }
-
-        if (!monster.gameObject.activeInHierarchy)
-        {
-            return;
-        }
-
-        if (player.IsDead() || monster.IsDead())
-        {
-            return;
-        }
-
-        float distance =
-            Vector3.Distance(
-                player.transform.position,
-                monster.transform.position
-            );
-
-        // --------------------------------
-        // ROTATION
-        // --------------------------------
+        float distance = Vector3.Distance(player.transform.position, monster.transform.position);
 
         if (distance <= attackRange)
         {
-            RotateTowardsOpponent(
-                player.transform,
-                monster.transform
-            );
-
-            RotateTowardsOpponent(
-                monster.transform,
-                player.transform
-            );
+            RotateTowardsOpponent(player.transform, monster.transform);
+            RotateTowardsOpponent(monster.transform, player.transform);
         }
 
-        // --------------------------------
-        // COMBAT
-        // --------------------------------
+        if (roundInProgress || distance > attackRange || Time.time < nextRoundTime) return;
 
-        if (roundInProgress)
-        {
-            return;
-        }
-
-        if (distance > attackRange)
-        {
-            return;
-        }
-
-        if (Time.time < nextRoundTime)
-        {
-            return;
-        }
-
-        StartCoroutine(
-            ResolveRound()
-        );
+        StartCoroutine(ResolveRound());
     }
 
-    // ====================================
-    // ROTATION
-    // ====================================
-
-    private void RotateTowardsOpponent(
-        Transform fighter,
-        Transform opponent
-    )
+    private void RotateTowardsOpponent(Transform fighter, Transform opponent)
     {
-        if (fighter == null || opponent == null)
-        {
-            return;
-        }
+        if (fighter == null || opponent == null) return;
 
-        Vector3 direction =
-            opponent.position -
-            fighter.position;
-
+        Vector3 direction = opponent.position - fighter.position;
         direction.y = 0f;
 
-        if (direction.sqrMagnitude < 0.001f)
-        {
-            return;
-        }
+        if (direction.sqrMagnitude < 0.001f) return;
 
-        Quaternion targetRotation =
-            Quaternion.LookRotation(
-                direction
-            );
-
-        fighter.rotation =
-            Quaternion.Slerp(
-                fighter.rotation,
-                targetRotation,
-                combatRotationSpeed *
-                Time.deltaTime
-            );
+        Quaternion targetRotation = Quaternion.LookRotation(direction);
+        fighter.rotation = Quaternion.Slerp(fighter.rotation, targetRotation, combatRotationSpeed * Time.deltaTime);
     }
-
-    // ====================================
-    // RESOLVE ROUND
-    // ====================================
 
     private IEnumerator ResolveRound()
     {
         roundInProgress = true;
 
-        // --------------------------------
-        // PLAYER ATTACK
-        // --------------------------------
-
-        yield return StartCoroutine(
-            PerformAttack(
-                playerAnimator,
-                player,
-                monster,
-                false
-            )
-        );
+        yield return StartCoroutine(PerformAttack(playerAnimator, player, monster, false));
 
         if (fightFinished)
         {
@@ -378,31 +193,15 @@ public class CombatManager : MonoBehaviour
             yield break;
         }
 
-        // --------------------------------
-        // MONSTER ATTACK
-        // --------------------------------
-
-        yield return StartCoroutine(
-            PerformAttack(
-                monsterAnimator,
-                monster,
-                player,
-                true
-            )
-        );
+        yield return StartCoroutine(PerformAttack(monsterAnimator, monster, player, true));
 
         if (!fightFinished)
         {
-            nextRoundTime =
-                Time.time + roundCooldown;
+            nextRoundTime = Time.time + roundCooldown;
         }
 
         roundInProgress = false;
     }
-
-    // ====================================
-    // PERFORM ATTACK
-    // ====================================
 
     private IEnumerator PerformAttack(
         Animator attackerAnimator,
@@ -411,348 +210,115 @@ public class CombatManager : MonoBehaviour
         bool monsterAttacking
     )
     {
-        if (attacker == null || defender == null)
-        {
-            yield break;
-        }
+        if (attacker == null || defender == null) yield break;
+        if (!attacker.gameObject.activeInHierarchy || !defender.gameObject.activeInHierarchy) yield break;
+        if (attacker.IsDead() || defender.IsDead()) yield break;
 
-        if (!attacker.gameObject.activeInHierarchy ||
-            !defender.gameObject.activeInHierarchy)
-        {
-            yield break;
-        }
+        RotateTowardsOpponent(attacker.transform, defender.transform);
 
-        if (attacker.IsDead() || defender.IsDead())
-        {
-            yield break;
-        }
-
-        // --------------------------------
-        // FACE OPPONENT
-        // --------------------------------
-
-        RotateTowardsOpponent(
-            attacker.transform,
-            defender.transform
-        );
-
-        // --------------------------------
-        // SELECT ATTACK
-        // --------------------------------
-
-        string selectedTrigger =
-            AttackTrigger;
+        // Wybór ataku
+        string selectedTrigger = AttackTrigger;
 
         if (monsterAttacking)
         {
-            bool hasBite =
-                HasTrigger(
-                    attackerAnimator,
-                    BiteTrigger
-                );
-
-            bool hasAttack =
-                HasTrigger(
-                    attackerAnimator,
-                    AttackTrigger
-                );
-
-            // --------------------------------
-            // ZOMBIE ATTACK SELECTION
-            // --------------------------------
-            //
-            // Jeśli zombie ma oba triggery,
-            // losujemy pomiędzy Bite i Attack.
-            //
-            // monsterBiteChance:
-            //
-            // 1.0 = zawsze Bite
-            // 0.5 = 50% Bite / 50% Attack
-            // 0.0 = zawsze Attack
+            bool hasBite = HasParameter(attackerAnimator, BiteTrigger, AnimatorControllerParameterType.Trigger);
+            bool hasAttack = HasParameter(attackerAnimator, AttackTrigger, AnimatorControllerParameterType.Trigger);
 
             if (hasBite && hasAttack)
             {
-                if (
-                    Random.value <
-                    monsterBiteChance
-                )
-                {
-                    selectedTrigger =
-                        BiteTrigger;
-                }
-                else
-                {
-                    selectedTrigger =
-                        AttackTrigger;
-                }
-
-                Debug.Log(
-                    $"[COMBAT] Zombie randomly selected " +
-                    $"{selectedTrigger}."
-                );
+                selectedTrigger = (Random.value < monsterBiteChance) ? BiteTrigger : AttackTrigger;
             }
-            else if (hasBite)
-            {
-                selectedTrigger =
-                    BiteTrigger;
-
-                Debug.LogWarning(
-                    "[COMBAT] Zombie has only Bite trigger. " +
-                    "Using Bite."
-                );
-            }
-            else if (hasAttack)
-            {
-                selectedTrigger =
-                    AttackTrigger;
-
-                Debug.LogWarning(
-                    "[COMBAT] Zombie has only Attack trigger. " +
-                    "Using Attack."
-                );
-            }
-            else
-            {
-                Debug.LogError(
-                    "[COMBAT] Zombie Animator has neither " +
-                    "'Bite' nor 'Attack' trigger."
-                );
-
-                yield break;
-            }
+            else if (hasBite) selectedTrigger = BiteTrigger;
+            else if (hasAttack) selectedTrigger = AttackTrigger;
+            else yield break;
         }
-
-        // --------------------------------
-        // START ATTACK
-        // --------------------------------
 
         if (attackerAnimator != null)
         {
-            attackerAnimator.ResetTrigger(
-                AttackTrigger
-            );
+            attackerAnimator.ResetTrigger(AttackTrigger);
+            attackerAnimator.ResetTrigger(BiteTrigger);
 
-            attackerAnimator.ResetTrigger(
-                BiteTrigger
-            );
-
-            if (HasTrigger(
-                attackerAnimator,
-                selectedTrigger
-            ))
+            if (HasParameter(attackerAnimator, selectedTrigger, AnimatorControllerParameterType.Trigger))
             {
-                attackerAnimator.SetTrigger(
-                    selectedTrigger
-                );
-
-                Debug.Log(
-                    $"[COMBAT] {attacker.name} uses " +
-                    $"{selectedTrigger}."
-                );
-            }
-            else
-            {
-                Debug.LogWarning(
-                    $"[COMBAT] {attacker.name} cannot use " +
-                    $"'{selectedTrigger}'. Trigger does not exist."
-                );
+                attackerAnimator.SetTrigger(selectedTrigger);
             }
         }
 
-        // --------------------------------
-        // DAMAGE DELAY
-        // --------------------------------
+        yield return new WaitForSeconds(damageDelay);
 
-        yield return new WaitForSeconds(
-            damageDelay
-        );
+        if (fightFinished) yield break;
+        if (!attacker.gameObject.activeInHierarchy || !defender.gameObject.activeInHierarchy) yield break;
+        if (attacker.IsDead() || defender.IsDead()) yield break;
 
-        if (fightFinished)
+        // Zadanie obrażeń
+        float damage = Random.Range(damageMin, damageMax);
+        defender.TakeDamage(damage);
+
+        // --- LOSOWANIE WARIANTU GETDAMAGE (50% / 50%) ---
+        Animator defenderAnimator = (defender == player) ? playerAnimator : monsterAnimator;
+        PlayRandomGetDamage(defenderAnimator, defender.name);
+
+        // Śmierć
+        if (defender.IsDead() || defender.CurrentHealth <= 0f)
         {
+            FinishFight(defender);
             yield break;
         }
 
-        if (!attacker.gameObject.activeInHierarchy ||
-            !defender.gameObject.activeInHierarchy)
-        {
-            yield break;
-        }
-
-        if (attacker.IsDead() || defender.IsDead())
-        {
-            yield break;
-        }
-
-        // --------------------------------
-        // DAMAGE
-        // --------------------------------
-
-        float damage =
-            Random.Range(
-                damageMin,
-                damageMax
-            );
-
-        float oldHealth =
-            defender.CurrentHealth;
-
-        defender.TakeDamage(
-            damage
-        );
-
-        Debug.Log(
-            $"[ROUND] {attacker.name} attacks " +
-            $"{defender.name} for {damage:F1}"
-        );
-
-        Debug.Log(
-            $"[ROUND] {defender.name} HP: " +
-            $"{oldHealth:F1} -> " +
-            $"{defender.CurrentHealth:F1}"
-        );
-
-        // --------------------------------
-        // DEATH
-        // --------------------------------
-
-        if (defender.IsDead() ||
-            defender.CurrentHealth <= 0f)
-        {
-            FinishFight(
-                defender
-            );
-
-            yield break;
-        }
-
-        // --------------------------------
-        // FINISH ATTACK
-        // --------------------------------
-
-        float remainingTime =
-            Mathf.Max(
-                0f,
-                attackAnimationDuration -
-                damageDelay
-            );
-
-        yield return new WaitForSeconds(
-            remainingTime
-        );
+        float remainingTime = Mathf.Max(0f, attackAnimationDuration - damageDelay);
+        yield return new WaitForSeconds(remainingTime);
     }
 
-    // ====================================
-    // FINISH FIGHT
-    // ====================================
-
-    private void FinishFight(
-        Health loser
-    )
+    private void PlayRandomGetDamage(Animator animator, string defenderName)
     {
-        if (fightFinished || loser == null)
+        if (animator == null) return;
+
+        if (HasParameter(animator, GetDamageTrigger, AnimatorControllerParameterType.Trigger))
         {
-            return;
+            // Jeśli istnieje parametr Int "GetDamageIndex", losujemy 0 lub 1
+            if (HasParameter(animator, GetDamageIndexInt, AnimatorControllerParameterType.Int))
+            {
+                int randomIndex = Random.Range(0, 2); // Zwraca 0 lub 1
+                animator.SetInteger(GetDamageIndexInt, randomIndex);
+                Debug.Log($"[COMBAT] {defenderName} GetDamage index: {randomIndex}");
+            }
+
+            animator.SetTrigger(GetDamageTrigger);
         }
+    }
+
+    private void FinishFight(Health loser)
+    {
+        if (fightFinished || loser == null) return;
 
         fightFinished = true;
-
-        bool playerWon =
-            loser == monster;
-
-        Debug.Log(
-            playerWon
-                ? "[COMBAT] PLAYER WINS!"
-                : "[COMBAT] MONSTER WINS!"
-        );
-
-        // --------------------------------
-        // STOP DEAD MONSTER AI
-        // --------------------------------
+        bool playerWon = (loser == monster);
 
         if (loser == monster)
         {
-            SimpleAgent agent =
-                monster.GetComponentInParent<SimpleAgent>();
-
+            SimpleAgent agent = monster.GetComponentInParent<SimpleAgent>();
             if (agent != null)
             {
                 agent.SetDead();
-
                 agent.enabled = false;
-
-                Debug.Log(
-                    "[COMBAT] Monster AI stopped after death."
-                );
             }
         }
 
-        // --------------------------------
-        // HIDE LOSER HEALTH BAR
-        // --------------------------------
+        HideHealthBar(loser);
+        PlayDeath(loser);
 
-        HideHealthBar(
-            loser
-        );
-
-        // --------------------------------
-        // DEATH
-        // --------------------------------
-
-        PlayDeath(
-            loser
-        );
-
-        // --------------------------------
-        // VICTORY
-        // --------------------------------
-
-        if (playerWon)
-        {
-            StartCoroutine(
-                PlayerVictory()
-            );
-        }
-        else
-        {
-            StartCoroutine(
-                MonsterVictory()
-            );
-        }
+        if (playerWon) StartCoroutine(PlayerVictory());
+        else StartCoroutine(MonsterVictory());
     }
 
-    // ====================================
-    // HIDE HEALTH BAR
-    // ====================================
-
-    private void HideHealthBar(
-        Health loser
-    )
+    private void HideHealthBar(Health loser)
     {
-        if (loser == null)
-        {
-            return;
-        }
+        if (loser == null) return;
 
-        // --------------------------------
-        // FIND HEALTH BAR ANCHOR
-        // --------------------------------
-
-        Transform anchor =
-            loser.transform.Find(
-                "HealthBarAnchor"
-            );
-
-        // --------------------------------
-        // IF ANCHOR IS NOT DIRECT CHILD
-        // --------------------------------
-
+        Transform anchor = loser.transform.Find("HealthBarAnchor");
         if (anchor == null)
         {
-            Transform[] children =
-                loser.GetComponentsInChildren<Transform>(
-                    true
-                );
-
+            Transform[] children = loser.GetComponentsInChildren<Transform>(true);
             foreach (Transform child in children)
             {
                 if (child.name == "HealthBarAnchor")
@@ -763,316 +329,106 @@ public class CombatManager : MonoBehaviour
             }
         }
 
-        // --------------------------------
-        // DISABLE WHOLE HEALTH BAR
-        // --------------------------------
-
         if (anchor != null)
         {
             anchor.gameObject.SetActive(false);
-
-            Debug.Log(
-                $"[COMBAT] HealthBarAnchor disabled for {loser.name}."
-            );
-
             return;
         }
 
-        // --------------------------------
-        // FALLBACK
-        // --------------------------------
-
-        HealthBar[] healthBars =
-            loser.GetComponentsInChildren<HealthBar>(
-                true
-            );
-
+        HealthBar[] healthBars = loser.GetComponentsInChildren<HealthBar>(true);
         foreach (HealthBar healthBar in healthBars)
         {
-            if (healthBar == null)
-            {
-                continue;
-            }
-
-            healthBar.gameObject.SetActive(false);
-
-            Debug.Log(
-                $"[COMBAT] HealthBar disabled for {loser.name}."
-            );
+            if (healthBar != null) healthBar.gameObject.SetActive(false);
         }
     }
 
-    // ====================================
-    // DEATH
-    // ====================================
-
-    private void PlayDeath(
-        Health loser
-    )
+    private void PlayDeath(Health loser)
     {
-        if (loser == null)
+        if (loser == null) return;
+
+        Animator loserAnimator = (loser == player) ? playerAnimator : monsterAnimator;
+        if (loserAnimator == null) return;
+
+        loserAnimator.applyRootMotion = false;
+
+        loserAnimator.ResetTrigger(AttackTrigger);
+        loserAnimator.ResetTrigger(BiteTrigger);
+        loserAnimator.ResetTrigger(TauntTrigger);
+        loserAnimator.ResetTrigger(GetDamageTrigger);
+
+        loserAnimator.SetBool(WalkingBool, false);
+        loserAnimator.SetBool(DancingBool, false);
+
+        // --- LOSOWANIE WARIANTU DEATH (50% / 50%) ---
+        if (HasParameter(loserAnimator, DeathTrigger, AnimatorControllerParameterType.Trigger))
         {
-            return;
+            // Jeśli istnieje parametr Int "DeathIndex", losujemy 0 lub 1
+            if (HasParameter(loserAnimator, DeathIndexInt, AnimatorControllerParameterType.Int))
+            {
+                int randomIndex = Random.Range(0, 2); // Zwraca 0 lub 1
+                loserAnimator.SetInteger(DeathIndexInt, randomIndex);
+                Debug.Log($"[COMBAT] {loser.name} Death index: {randomIndex}");
+            }
+
+            loserAnimator.SetTrigger(DeathTrigger);
         }
-
-        Animator loserAnimator =
-            loser == player
-                ? playerAnimator
-                : monsterAnimator;
-
-        if (loserAnimator == null)
-        {
-            Debug.LogWarning(
-                "[COMBAT] Dead character has no Animator."
-            );
-
-            return;
-        }
-
-        // --------------------------------
-        // NO ROOT MOTION
-        // --------------------------------
-
-        loserAnimator.applyRootMotion =
-            false;
-
-        // --------------------------------
-        // CLEAR COMBAT ANIMATION
-        // --------------------------------
-
-        loserAnimator.ResetTrigger(
-            AttackTrigger
-        );
-
-        loserAnimator.ResetTrigger(
-            BiteTrigger
-        );
-
-        loserAnimator.ResetTrigger(
-            TauntTrigger
-        );
-
-        loserAnimator.SetBool(
-            WalkingBool,
-            false
-        );
-
-        loserAnimator.SetBool(
-            DancingBool,
-            false
-        );
-
-        // --------------------------------
-        // DEATH ANIMATION
-        // --------------------------------
-
-        if (HasTrigger(
-            loserAnimator,
-            DeathTrigger
-        ))
-        {
-            loserAnimator.SetTrigger(
-                DeathTrigger
-            );
-
-            Debug.Log(
-                $"[COMBAT] {loser.name} Death started."
-            );
-        }
-        else
-        {
-            Debug.LogWarning(
-                $"[COMBAT] {loser.name} Animator has no " +
-                "'Death' trigger."
-            );
-        }
-
-        // --------------------------------
-        // STOP PLAYER CONTROL
-        // --------------------------------
 
         if (loser == player)
         {
             FindPlayerClickController();
-
-            if (playerClickController != null)
-            {
-                playerClickController.enabled =
-                    false;
-            }
+            if (playerClickController != null) playerClickController.enabled = false;
         }
     }
-
-    // ====================================
-    // PLAYER VICTORY
-    // ====================================
 
     private IEnumerator PlayerVictory()
     {
-        if (player == null)
+        if (player == null || playerAnimator == null) yield break;
+
+        if (playerClickController != null) playerClickController.enabled = false;
+
+        playerAnimator.ResetTrigger(AttackTrigger);
+        playerAnimator.ResetTrigger(BiteTrigger);
+        playerAnimator.ResetTrigger(TauntTrigger);
+        playerAnimator.SetBool(WalkingBool, false);
+        playerAnimator.SetBool(DancingBool, false);
+
+        if (HasParameter(playerAnimator, TauntTrigger, AnimatorControllerParameterType.Trigger))
         {
-            yield break;
+            playerAnimator.SetTrigger(TauntTrigger);
         }
 
-        if (playerAnimator == null)
-        {
-            yield break;
-        }
+        yield return new WaitForSeconds(tauntDuration);
 
-        if (playerClickController != null)
-        {
-            playerClickController.enabled =
-                false;
-        }
+        playerAnimator.ResetTrigger(TauntTrigger);
+        playerAnimator.SetBool(DancingBool, false);
+        playerAnimator.SetBool(WalkingBool, false);
 
-        playerAnimator.ResetTrigger(
-            AttackTrigger
-        );
-
-        playerAnimator.ResetTrigger(
-            BiteTrigger
-        );
-
-        playerAnimator.ResetTrigger(
-            TauntTrigger
-        );
-
-        playerAnimator.SetBool(
-            WalkingBool,
-            false
-        );
-
-        playerAnimator.SetBool(
-            DancingBool,
-            false
-        );
-
-        if (HasTrigger(
-            playerAnimator,
-            TauntTrigger
-        ))
-        {
-            playerAnimator.SetTrigger(
-                TauntTrigger
-            );
-
-            Debug.Log(
-                "[COMBAT] Player victory Taunt started."
-            );
-        }
-
-        yield return new WaitForSeconds(
-            tauntDuration
-        );
-
-        playerAnimator.ResetTrigger(
-            TauntTrigger
-        );
-
-        playerAnimator.SetBool(
-            DancingBool,
-            false
-        );
-
-        playerAnimator.SetBool(
-            WalkingBool,
-            false
-        );
-
-        if (playerClickController != null)
-        {
-            playerClickController.enabled =
-                true;
-        }
-
-        Debug.Log(
-            "[COMBAT] Player victory Taunt finished."
-        );
+        if (playerClickController != null) playerClickController.enabled = true;
     }
-
-    // ====================================
-    // MONSTER VICTORY
-    // ====================================
 
     private IEnumerator MonsterVictory()
     {
-        if (monster == null)
+        if (monster == null || monsterAnimator == null) yield break;
+
+        monsterAnimator.ResetTrigger(AttackTrigger);
+        monsterAnimator.ResetTrigger(BiteTrigger);
+        monsterAnimator.ResetTrigger(TauntTrigger);
+        monsterAnimator.SetBool(WalkingBool, false);
+        monsterAnimator.SetBool(DancingBool, false);
+
+        if (HasParameter(monsterAnimator, TauntTrigger, AnimatorControllerParameterType.Trigger))
         {
-            yield break;
+            monsterAnimator.SetTrigger(TauntTrigger);
         }
 
-        if (monsterAnimator == null)
-        {
-            yield break;
-        }
+        yield return new WaitForSeconds(tauntDuration);
 
-        monsterAnimator.ResetTrigger(
-            AttackTrigger
-        );
-
-        monsterAnimator.ResetTrigger(
-            BiteTrigger
-        );
-
-        monsterAnimator.ResetTrigger(
-            TauntTrigger
-        );
-
-        monsterAnimator.SetBool(
-            WalkingBool,
-            false
-        );
-
-        monsterAnimator.SetBool(
-            DancingBool,
-            false
-        );
-
-        if (HasTrigger(
-            monsterAnimator,
-            TauntTrigger
-        ))
-        {
-            monsterAnimator.SetTrigger(
-                TauntTrigger
-            );
-
-            Debug.Log(
-                "[COMBAT] Monster victory Taunt started."
-            );
-        }
-
-        yield return new WaitForSeconds(
-            tauntDuration
-        );
-
-        monsterAnimator.ResetTrigger(
-            TauntTrigger
-        );
-
-        monsterAnimator.SetBool(
-            DancingBool,
-            false
-        );
-
-        monsterAnimator.SetBool(
-            WalkingBool,
-            false
-        );
-
-        Debug.Log(
-            "[COMBAT] Monster victory Taunt finished."
-        );
+        monsterAnimator.ResetTrigger(TauntTrigger);
+        monsterAnimator.SetBool(DancingBool, false);
+        monsterAnimator.SetBool(WalkingBool, false);
     }
 
-    // ====================================
-    // REGISTER COMBATANTS
-    // ====================================
-
-    public void RegisterCombatants(
-        Health playerHealth,
-        Health monsterHealth
-    )
+    public void RegisterCombatants(Health playerHealth, Health monsterHealth)
     {
         player = playerHealth;
         monster = monsterHealth;
@@ -1080,25 +436,11 @@ public class CombatManager : MonoBehaviour
         fightFinished = false;
         roundInProgress = false;
 
-        playerAnimator =
-            FindAttackAnimator(
-                player,
-                "Player"
-            );
-
-        monsterAnimator =
-            FindAttackAnimator(
-                monster,
-                "Monster"
-            );
+        playerAnimator = FindAttackAnimator(player, "Player");
+        monsterAnimator = FindAttackAnimator(monster, "Monster");
 
         FindPlayerClickController();
 
-        nextRoundTime =
-            Time.time + 0.5f;
-
-        Debug.Log(
-            "[COMBAT] Combatants registered."
-        );
+        nextRoundTime = Time.time + 0.5f;
     }
 }
