@@ -127,9 +127,9 @@ public class SelectionController : MonoBehaviour
     // ====================================
     // LEFT CLICK
     // ====================================
-    // LPM na soldierze = zaznaczenie.
-    // LPM na żywym wrogu = atak dystansowy.
-    // LPM na trupie = NIC.
+    // Left click on a soldier = select.
+    // Left click on a living enemy = ranged attack.
+    // Left click on a dead enemy = nothing.
     // ====================================
 
     private void HandleLeftClick(
@@ -175,7 +175,7 @@ public class SelectionController : MonoBehaviour
 
         if (enemy != null)
         {
-            // MARTWY WRÓG = IGNORUJEMY KLIKNIĘCIE
+            // Dead enemy = ignore click.
             if (!IsEnemyAlive(enemy))
             {
                 return;
@@ -192,15 +192,15 @@ public class SelectionController : MonoBehaviour
         // GROUND
         // ====================================
 
-        // LPM na ziemi nic nie robi.
+        // Left click on the ground does nothing.
     }
 
     // ====================================
     // RIGHT CLICK
     // ====================================
-    // RMB na ziemi = ruch.
-    // RMB na żywym wrogu = ruch do niego.
-    // RMB na trupie = NIC.
+    // Right click on the ground = move.
+    // Right click on a living enemy = move towards enemy.
+    // Right click on a dead enemy = nothing.
     // ====================================
 
     private void HandleRightClick()
@@ -237,7 +237,7 @@ public class SelectionController : MonoBehaviour
 
         if (enemy != null)
         {
-            // MARTWY WRÓG = NIC NIE ROBIMY
+            // Dead enemy = do nothing.
             if (!IsEnemyAlive(enemy))
             {
                 return;
@@ -262,8 +262,8 @@ public class SelectionController : MonoBehaviour
     // ====================================
     // ENEMY LEFT CLICK
     // ====================================
-    // LPM na żywego zombie = atak.
-    // NIE WOLNO tutaj wywołać MoveToEnemy().
+    // Left click on a living enemy = attack.
+    // MoveToEnemy() must never be called here.
     // ====================================
 
     private void HandleEnemyLeftClick(
@@ -299,7 +299,7 @@ public class SelectionController : MonoBehaviour
     // ====================================
     // ENEMY RIGHT CLICK
     // ====================================
-    // RMB na żywego zombie = podejście.
+    // Right click on a living enemy = approach enemy.
     // ====================================
 
     private void HandleEnemyRightClick(
@@ -391,10 +391,10 @@ public class SelectionController : MonoBehaviour
                 end
             );
 
+        // Use the current Unity API.
+        // Sorting is not required for RTS selection.
         PlayerClickController[] units =
-            FindObjectsOfType<
-                PlayerClickController
-            >();
+            FindObjectsByType<PlayerClickController>();
 
         foreach (
             PlayerClickController unit
@@ -423,7 +423,8 @@ public class SelectionController : MonoBehaviour
                 );
 
             if (selectionRect.Contains(
-                unitScreenPosition))
+                unitScreenPosition
+            ))
             {
                 SelectUnit(
                     unit
@@ -514,13 +515,13 @@ public class SelectionController : MonoBehaviour
             return false;
         }
 
-        // GameObject nieaktywny = brak możliwości celu.
+        // Inactive GameObject = cannot be targeted.
         if (!enemy.gameObject.activeInHierarchy)
         {
             return false;
         }
 
-        // Health <= 0 = trup.
+        // Health <= 0 = dead.
         if (enemy.IsDead())
         {
             return false;

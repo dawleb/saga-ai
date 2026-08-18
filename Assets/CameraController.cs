@@ -123,7 +123,8 @@ public class CameraController : MonoBehaviour
         if (Mouse.current == null)
             return;
 
-        if (!Mouse.current.rightButton.isPressed)
+        // Hold the middle mouse button to rotate the camera.
+        if (!Mouse.current.middleButton.isPressed)
             return;
 
         Vector2 mouseDelta =

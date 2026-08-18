@@ -13,7 +13,9 @@ using UnityEngine;
 // these values, this file can simply be deleted.
 public static class SceneRuntimeFixes
 {
-    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
+    [RuntimeInitializeOnLoadMethod(
+        RuntimeInitializeLoadType.AfterSceneLoad
+    )]
     private static void Apply()
     {
         NormalizeCharacter("Player");
@@ -23,37 +25,53 @@ public static class SceneRuntimeFixes
         EnsureSelectionRing();
     }
 
-    private static void NormalizeCharacter(string objectName)
+    private static void NormalizeCharacter(
+        string objectName
+    )
     {
-        GameObject character = FindIncludingInactive(objectName);
+        GameObject character =
+            FindIncludingInactive(objectName);
 
         if (character == null)
             return;
 
-        Rigidbody body = character.GetComponent<Rigidbody>();
+        Rigidbody body =
+            character.GetComponent<Rigidbody>();
 
-        if (body != null && (!body.isKinematic || body.useGravity))
+        if (body != null &&
+            (!body.isKinematic ||
+             body.useGravity))
         {
             // Both characters are moved entirely from script at a locked
             // height, so kinematic is what the code already assumes.
             body.isKinematic = true;
             body.useGravity = false;
-            body.constraints = RigidbodyConstraints.FreezeRotation;
+            body.constraints =
+                RigidbodyConstraints.FreezeRotation;
 
-            Log($"{objectName}: Rigidbody set kinematic, gravity off.");
+            Log(
+                $"{objectName}: Rigidbody set kinematic, gravity off."
+            );
         }
 
         // Root motion drives the model away from the root the scripts control.
-        Animator animator = character.GetComponentInChildren<Animator>();
+        Animator animator =
+            character.GetComponentInChildren<Animator>();
 
-        if (animator != null && animator.applyRootMotion)
+        if (animator != null &&
+            animator.applyRootMotion)
         {
             animator.applyRootMotion = false;
 
-            Log($"{objectName}: root motion disabled.");
+            Log(
+                $"{objectName}: root motion disabled."
+            );
         }
 
-        RemoveDuplicateCapsules(character, objectName);
+        RemoveDuplicateCapsules(
+            character,
+            objectName
+        );
     }
 
     private static void RemoveDuplicateCapsules(
@@ -69,31 +87,49 @@ public static class SceneRuntimeFixes
 
         // Keep the first and give it sane dimensions. One of the originals
         // reached below the ground plane.
-        for (int i = capsules.Length - 1; i >= 1; i--)
-            Object.Destroy(capsules[i]);
+        for (
+            int i = capsules.Length - 1;
+            i >= 1;
+            i--
+        )
+        {
+            Object.Destroy(
+                capsules[i]
+            );
+        }
 
-        CapsuleCollider body = capsules[0];
-        body.direction = 1; // Y axis
+        CapsuleCollider body =
+            capsules[0];
+
+        body.direction = 1;
         body.radius = 0.4f;
         body.height = 1.8f;
-        body.center = new Vector3(0f, 0.4f, 0f);
+        body.center =
+            new Vector3(
+                0f,
+                0.4f,
+                0f
+            );
 
         Log(
-            $"{objectName}: removed {capsules.Length - 1} duplicate " +
+            $"{objectName}: removed " +
+            $"{capsules.Length - 1} duplicate " +
             "capsule collider(s)."
         );
     }
 
     private static void RemoveDegenerateGroundCollider()
     {
-        GameObject ground = FindIncludingInactive("Ground");
+        GameObject ground =
+            FindIncludingInactive("Ground");
 
         if (ground == null)
             return;
 
         // The Ground carries a MeshCollider as well, so this BoxCollider is
         // redundant, and its Y size of 2.2e-16 gives PhysX degenerate contacts.
-        BoxCollider box = ground.GetComponent<BoxCollider>();
+        BoxCollider box =
+            ground.GetComponent<BoxCollider>();
 
         if (box == null)
             return;
@@ -103,12 +139,16 @@ public static class SceneRuntimeFixes
 
         Object.Destroy(box);
 
-        Log("Ground: removed the degenerate zero-thickness BoxCollider.");
+        Log(
+            "Ground: removed the degenerate " +
+            "zero-thickness BoxCollider."
+        );
     }
 
     private static void EnsureSelectionRing()
     {
-        GameObject ring = FindIncludingInactive("SelectionRing");
+        GameObject ring =
+            FindIncludingInactive("SelectionRing");
 
         if (ring == null)
             return;
@@ -117,20 +157,28 @@ public static class SceneRuntimeFixes
         {
             ring.AddComponent<SelectionRing>();
 
-            Log("SelectionRing: component attached automatically.");
+            Log(
+                "SelectionRing: component attached automatically."
+            );
         }
     }
 
-    private static GameObject FindIncludingInactive(string objectName)
+    private static GameObject FindIncludingInactive(
+        string objectName
+    )
     {
         // SelectionRing starts inactive, so GameObject.Find would miss it.
+        //
+        // Use the current Unity API without the obsolete
+        // FindObjectsSortMode parameter.
         GameObject[] all =
             Object.FindObjectsByType<GameObject>(
-                FindObjectsInactive.Include,
-                FindObjectsSortMode.None
+                FindObjectsInactive.Include
             );
 
-        foreach (GameObject candidate in all)
+        foreach (
+            GameObject candidate
+            in all)
         {
             if (candidate.name == objectName)
                 return candidate;
@@ -139,8 +187,12 @@ public static class SceneRuntimeFixes
         return null;
     }
 
-    private static void Log(string message)
+    private static void Log(
+        string message
+    )
     {
-        Debug.Log($"[RUNTIME FIX] {message}");
+        Debug.Log(
+            $"[RUNTIME FIX] {message}"
+        );
     }
 }

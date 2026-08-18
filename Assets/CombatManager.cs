@@ -11,7 +11,6 @@ public class CombatManager : MonoBehaviour
 
     [Header("Melee Combat")]
     public float roundCooldown = 1f;
-
     public float attackAnimationDuration = 0.8f;
     public float damageDelay = 0.35f;
 
@@ -24,13 +23,12 @@ public class CombatManager : MonoBehaviour
 
     [Header("Ranged Combat")]
     public float shootingRange = 8f;
-
     public float shootingInterval = 1.2f;
 
-    [Tooltip("Ile strzałów Soldier może oddać przed przeładowaniem.")]
+    [Tooltip("Number of shots the Soldier can fire before reloading.")]
     public int shotsBeforeReload = 4;
 
-    [Tooltip("Czas trwania przeładowania.")]
+    [Tooltip("Reload duration in seconds.")]
     public float reloadDuration = 2f;
 
     [Header("Ranged Damage")]
@@ -65,7 +63,6 @@ public class CombatManager : MonoBehaviour
     private const string DeathTrigger = "Death";
     private const string DeathIndexInt = "DeathIndex";
 
-    private const string DancingBool = "IsDancing";
     private const string WalkingBool = "IsWalking";
 
     // ====================================
@@ -85,7 +82,6 @@ public class CombatManager : MonoBehaviour
 
     private bool fightFinished;
     private bool roundInProgress;
-
     private bool isReloading;
 
     private int shotsFired;
@@ -151,10 +147,14 @@ public class CombatManager : MonoBehaviour
     // FIND COMBATANTS
     // ====================================
 
+    // ====================================
+// FIND COMBATANTS
+// ====================================
+
     private void FindCombatants()
     {
         Health[] healthObjects =
-            FindObjectsOfType<Health>();
+            FindObjectsByType<Health>();
 
         foreach (Health health in healthObjects)
         {
@@ -183,7 +183,6 @@ public class CombatManager : MonoBehaviour
             break;
         }
     }
-
     private void FindPlayerClickController()
     {
         if (player == null)
@@ -253,8 +252,7 @@ public class CombatManager : MonoBehaviour
 
         foreach (
             AnimatorControllerParameter parameter
-            in animator.parameters
-        )
+            in animator.parameters)
         {
             if (
                 parameter.type == type &&
@@ -266,6 +264,29 @@ public class CombatManager : MonoBehaviour
         }
 
         return false;
+    }
+
+    // ====================================
+    // SAFE TRIGGER RESET
+    // ====================================
+
+    private static void SafeResetTrigger(
+        Animator animator,
+        string triggerName
+    )
+    {
+        if (!HasParameter(
+                animator,
+                triggerName,
+                AnimatorControllerParameterType.Trigger
+            ))
+        {
+            return;
+        }
+
+        animator.ResetTrigger(
+            triggerName
+        );
     }
 
     // ====================================
@@ -311,7 +332,9 @@ public class CombatManager : MonoBehaviour
                 player.transform
             );
 
-            HandleMeleeCombat(distance);
+            HandleMeleeCombat(
+                distance
+            );
 
             return;
         }
@@ -322,7 +345,9 @@ public class CombatManager : MonoBehaviour
 
         if (HasSelectedEnemy())
         {
-            HandleRangedCombat(distance);
+            HandleRangedCombat(
+                distance
+            );
         }
     }
 
@@ -414,15 +439,21 @@ public class CombatManager : MonoBehaviour
     {
         if (attacker == null ||
             defender == null)
+        {
             yield break;
+        }
 
         if (!attacker.gameObject.activeInHierarchy ||
             !defender.gameObject.activeInHierarchy)
+        {
             yield break;
+        }
 
         if (attacker.IsDead() ||
             defender.IsDead())
+        {
             yield break;
+        }
 
         RotateTowardsOpponent(
             attacker.transform,
@@ -455,8 +486,7 @@ public class CombatManager : MonoBehaviour
             if (hasBite && hasAttack)
             {
                 selectedTrigger =
-                    Random.value <
-                    monsterBiteChance
+                    Random.value < monsterBiteChance
                         ? BiteTrigger
                         : AttackTrigger;
             }
@@ -482,11 +512,13 @@ public class CombatManager : MonoBehaviour
 
         if (attackerAnimator != null)
         {
-            attackerAnimator.ResetTrigger(
+            SafeResetTrigger(
+                attackerAnimator,
                 AttackTrigger
             );
 
-            attackerAnimator.ResetTrigger(
+            SafeResetTrigger(
+                attackerAnimator,
                 BiteTrigger
             );
 
@@ -511,11 +543,15 @@ public class CombatManager : MonoBehaviour
 
         if (!attacker.gameObject.activeInHierarchy ||
             !defender.gameObject.activeInHierarchy)
+        {
             yield break;
+        }
 
         if (attacker.IsDead() ||
             defender.IsDead())
+        {
             yield break;
+        }
 
         // ====================================
         // DAMAGE
@@ -542,8 +578,7 @@ public class CombatManager : MonoBehaviour
         // DEATH
         // ====================================
 
-        if (defender.IsDead() ||
-            defender.CurrentHealth <= 0f)
+        if (defender.IsDead())
         {
             FinishFight(
                 defender
@@ -616,10 +651,6 @@ public class CombatManager : MonoBehaviour
             yield break;
         }
 
-        // ====================================
-        // CHECK DISTANCE
-        // ====================================
-
         float distance =
             Vector3.Distance(
                 player.transform.position,
@@ -631,10 +662,6 @@ public class CombatManager : MonoBehaviour
             roundInProgress = false;
             yield break;
         }
-
-        // ====================================
-        // FACE ZOMBIE
-        // ====================================
 
         RotateTowardsOpponent(
             player.transform,
@@ -653,6 +680,11 @@ public class CombatManager : MonoBehaviour
                 AnimatorControllerParameterType.Trigger
             ))
             {
+                SafeResetTrigger(
+                    playerAnimator,
+                    ShootingTrigger
+                );
+
                 playerAnimator.SetTrigger(
                     ShootingTrigger
                 );
@@ -661,17 +693,10 @@ public class CombatManager : MonoBehaviour
                     "[COMBAT] Soldier Shooting."
                 );
             }
-            else
-            {
-                Debug.LogWarning(
-                    "[COMBAT] Player Animator has no " +
-                    "'Shooting' trigger."
-                );
-            }
         }
 
         // ====================================
-        // DAMAGE
+        // DAMAGE DELAY
         // ====================================
 
         yield return new WaitForSeconds(
@@ -703,6 +728,10 @@ public class CombatManager : MonoBehaviour
             yield break;
         }
 
+        // ====================================
+        // DAMAGE
+        // ====================================
+
         float damage =
             Random.Range(
                 shootingDamageMin,
@@ -729,8 +758,7 @@ public class CombatManager : MonoBehaviour
         // DEATH
         // ====================================
 
-        if (monster.IsDead() ||
-            monster.CurrentHealth <= 0f)
+        if (monster.IsDead())
         {
             FinishFight(
                 monster
@@ -780,15 +808,13 @@ public class CombatManager : MonoBehaviour
                 AnimatorControllerParameterType.Trigger
             ))
             {
-                playerAnimator.SetTrigger(
+                SafeResetTrigger(
+                    playerAnimator,
                     ReloadingTrigger
                 );
-            }
-            else
-            {
-                Debug.LogWarning(
-                    "[COMBAT] Player Animator has no " +
-                    "'Reloading' trigger."
+
+                playerAnimator.SetTrigger(
+                    ReloadingTrigger
                 );
             }
         }
@@ -817,7 +843,9 @@ public class CombatManager : MonoBehaviour
     {
         if (fighter == null ||
             opponent == null)
+        {
             return;
+        }
 
         Vector3 direction =
             opponent.position -
@@ -863,6 +891,10 @@ public class CombatManager : MonoBehaviour
             return;
         }
 
+        // ====================================
+        // RANDOM DAMAGE ANIMATION
+        // ====================================
+
         if (HasParameter(
             animator,
             GetDamageIndexInt,
@@ -882,9 +914,14 @@ public class CombatManager : MonoBehaviour
 
             Debug.Log(
                 $"[COMBAT] {defenderName} " +
-                $"GetDamage index: {randomIndex}"
+                $"GetDamageIndex: {randomIndex}"
             );
         }
+
+        SafeResetTrigger(
+            animator,
+            GetDamageTrigger
+        );
 
         animator.SetTrigger(
             GetDamageTrigger
@@ -901,7 +938,9 @@ public class CombatManager : MonoBehaviour
     {
         if (fightFinished ||
             loser == null)
+        {
             return;
+        }
 
         fightFinished = true;
 
@@ -975,8 +1014,7 @@ public class CombatManager : MonoBehaviour
 
             foreach (Transform child in children)
             {
-                if (child.name ==
-                    "HealthBarAnchor")
+                if (child.name == "HealthBarAnchor")
                 {
                     anchor = child;
                     break;
@@ -1000,8 +1038,7 @@ public class CombatManager : MonoBehaviour
 
         foreach (
             HealthBar healthBar
-            in healthBars
-        )
+            in healthBars)
         {
             if (healthBar != null)
             {
@@ -1034,39 +1071,86 @@ public class CombatManager : MonoBehaviour
         loserAnimator.applyRootMotion =
             false;
 
-        loserAnimator.ResetTrigger(
+        // ====================================
+        // RESET COMBAT TRIGGERS
+        // ====================================
+
+        SafeResetTrigger(
+            loserAnimator,
             AttackTrigger
         );
 
-        loserAnimator.ResetTrigger(
+        SafeResetTrigger(
+            loserAnimator,
             BiteTrigger
         );
 
-        loserAnimator.ResetTrigger(
+        SafeResetTrigger(
+            loserAnimator,
             ShootingTrigger
         );
 
-        loserAnimator.ResetTrigger(
+        SafeResetTrigger(
+            loserAnimator,
             ReloadingTrigger
         );
 
-        loserAnimator.ResetTrigger(
+        SafeResetTrigger(
+            loserAnimator,
             TauntTrigger
         );
 
-        loserAnimator.ResetTrigger(
+        SafeResetTrigger(
+            loserAnimator,
             GetDamageTrigger
         );
 
-        loserAnimator.SetBool(
-            WalkingBool,
-            false
-        );
+        // ====================================
+        // STOP WALKING
+        // ====================================
 
-        loserAnimator.SetBool(
-            DancingBool,
-            false
-        );
+        if (HasParameter(
+            loserAnimator,
+            WalkingBool,
+            AnimatorControllerParameterType.Bool
+        ))
+        {
+            loserAnimator.SetBool(
+                WalkingBool,
+                false
+            );
+        }
+
+        // ====================================
+        // RANDOM DEATH INDEX
+        // ====================================
+
+        if (HasParameter(
+            loserAnimator,
+            DeathIndexInt,
+            AnimatorControllerParameterType.Int
+        ))
+        {
+            int randomDeathIndex =
+                Random.Range(
+                    0,
+                    2
+                );
+
+            loserAnimator.SetInteger(
+                DeathIndexInt,
+                randomDeathIndex
+            );
+
+            Debug.Log(
+                $"[COMBAT] {loser.name} " +
+                $"DeathIndex: {randomDeathIndex}"
+            );
+        }
+
+        // ====================================
+        // DEATH TRIGGER
+        // ====================================
 
         if (HasParameter(
             loserAnimator,
@@ -1074,28 +1158,26 @@ public class CombatManager : MonoBehaviour
             AnimatorControllerParameterType.Trigger
         ))
         {
-            if (HasParameter(
+            SafeResetTrigger(
                 loserAnimator,
-                DeathIndexInt,
-                AnimatorControllerParameterType.Int
-            ))
-            {
-                int randomIndex =
-                    Random.Range(
-                        0,
-                        2
-                    );
-
-                loserAnimator.SetInteger(
-                    DeathIndexInt,
-                    randomIndex
-                );
-            }
+                DeathTrigger
+            );
 
             loserAnimator.SetTrigger(
                 DeathTrigger
             );
         }
+        else
+        {
+            Debug.LogWarning(
+                $"[COMBAT] {loser.name} Animator " +
+                $"has no 'Death' trigger."
+            );
+        }
+
+        // ====================================
+        // DISABLE PLAYER CONTROL
+        // ====================================
 
         if (loser == player)
         {
@@ -1117,7 +1199,9 @@ public class CombatManager : MonoBehaviour
     {
         if (player == null ||
             playerAnimator == null)
+        {
             yield break;
+        }
 
         if (playerClickController != null)
         {
@@ -1125,35 +1209,42 @@ public class CombatManager : MonoBehaviour
                 false;
         }
 
-        playerAnimator.ResetTrigger(
+        SafeResetTrigger(
+            playerAnimator,
             AttackTrigger
         );
 
-        playerAnimator.ResetTrigger(
+        SafeResetTrigger(
+            playerAnimator,
             BiteTrigger
         );
 
-        playerAnimator.ResetTrigger(
+        SafeResetTrigger(
+            playerAnimator,
             ShootingTrigger
         );
 
-        playerAnimator.ResetTrigger(
+        SafeResetTrigger(
+            playerAnimator,
             ReloadingTrigger
         );
 
-        playerAnimator.ResetTrigger(
+        SafeResetTrigger(
+            playerAnimator,
             TauntTrigger
         );
 
-        playerAnimator.SetBool(
+        if (HasParameter(
+            playerAnimator,
             WalkingBool,
-            false
-        );
-
-        playerAnimator.SetBool(
-            DancingBool,
-            false
-        );
+            AnimatorControllerParameterType.Bool
+        ))
+        {
+            playerAnimator.SetBool(
+                WalkingBool,
+                false
+            );
+        }
 
         if (HasParameter(
             playerAnimator,
@@ -1170,19 +1261,22 @@ public class CombatManager : MonoBehaviour
             tauntDuration
         );
 
-        playerAnimator.ResetTrigger(
+        SafeResetTrigger(
+            playerAnimator,
             TauntTrigger
         );
 
-        playerAnimator.SetBool(
-            DancingBool,
-            false
-        );
-
-        playerAnimator.SetBool(
+        if (HasParameter(
+            playerAnimator,
             WalkingBool,
-            false
-        );
+            AnimatorControllerParameterType.Bool
+        ))
+        {
+            playerAnimator.SetBool(
+                WalkingBool,
+                false
+            );
+        }
     }
 
     // ====================================
@@ -1193,29 +1287,46 @@ public class CombatManager : MonoBehaviour
     {
         if (monster == null ||
             monsterAnimator == null)
+        {
             yield break;
+        }
 
-        monsterAnimator.ResetTrigger(
+        SafeResetTrigger(
+            monsterAnimator,
             AttackTrigger
         );
 
-        monsterAnimator.ResetTrigger(
+        SafeResetTrigger(
+            monsterAnimator,
             BiteTrigger
         );
 
-        monsterAnimator.ResetTrigger(
+        SafeResetTrigger(
+            monsterAnimator,
+            ShootingTrigger
+        );
+
+        SafeResetTrigger(
+            monsterAnimator,
+            ReloadingTrigger
+        );
+
+        SafeResetTrigger(
+            monsterAnimator,
             TauntTrigger
         );
 
-        monsterAnimator.SetBool(
+        if (HasParameter(
+            monsterAnimator,
             WalkingBool,
-            false
-        );
-
-        monsterAnimator.SetBool(
-            DancingBool,
-            false
-        );
+            AnimatorControllerParameterType.Bool
+        ))
+        {
+            monsterAnimator.SetBool(
+                WalkingBool,
+                false
+            );
+        }
 
         if (HasParameter(
             monsterAnimator,
@@ -1232,19 +1343,22 @@ public class CombatManager : MonoBehaviour
             tauntDuration
         );
 
-        monsterAnimator.ResetTrigger(
+        SafeResetTrigger(
+            monsterAnimator,
             TauntTrigger
         );
 
-        monsterAnimator.SetBool(
-            DancingBool,
-            false
-        );
-
-        monsterAnimator.SetBool(
+        if (HasParameter(
+            monsterAnimator,
             WalkingBool,
-            false
-        );
+            AnimatorControllerParameterType.Bool
+        ))
+        {
+            monsterAnimator.SetBool(
+                WalkingBool,
+                false
+            );
+        }
     }
 
     // ====================================
@@ -1264,8 +1378,8 @@ public class CombatManager : MonoBehaviour
 
         fightFinished = false;
         roundInProgress = false;
-
         isReloading = false;
+
         shotsFired = 0;
 
         playerAnimator =

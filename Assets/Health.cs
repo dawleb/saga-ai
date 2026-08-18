@@ -7,11 +7,15 @@ public class Health : MonoBehaviour
 
     public float CurrentHealth { get; private set; }
 
+    [Header("Death Animation")]
+    [Tooltip("Number of death animations. Example: 2 = indexes 0 and 1.")]
+    public int deathAnimationCount = 2;
+
     private Animator animator;
 
     private const string GetDamageTrigger = "GetDamage";
-    private const string Death1Trigger = "Death1";
-    private const string Death2Trigger = "Death2";
+    private const string DeathTrigger = "Death";
+    private const string DeathIndexParameter = "DeathIndex";
 
     private void Awake()
     {
@@ -21,45 +25,65 @@ public class Health : MonoBehaviour
         ResetHealth();
     }
 
+    // ====================================
+    // RESET HEALTH
+    // ====================================
+
     public void ResetHealth()
     {
         CurrentHealth = maxHealth;
 
-        if (animator != null)
+        if (animator == null)
         {
-            animator.Rebind();
-            animator.Update(0f);
-
-            animator.ResetTrigger(
-                GetDamageTrigger
-            );
-
-            animator.ResetTrigger(
-                Death1Trigger
-            );
-
-            animator.ResetTrigger(
-                Death2Trigger
-            );
+            return;
         }
+
+        animator.Rebind();
+        animator.Update(0f);
+
+        animator.ResetTrigger(
+            GetDamageTrigger
+        );
+
+        animator.ResetTrigger(
+            DeathTrigger
+        );
+
+        animator.SetInteger(
+            DeathIndexParameter,
+            0
+        );
     }
+
+    // ====================================
+    // SET HEALTH
+    // ====================================
 
     public void SetHealth(float value)
     {
-        CurrentHealth = Mathf.Clamp(
-            value,
-            0f,
-            maxHealth
-        );
+        CurrentHealth =
+            Mathf.Clamp(
+                value,
+                0f,
+                maxHealth
+            );
     }
+
+    // ====================================
+    // TAKE DAMAGE
+    // ====================================
 
     public void TakeDamage(float damage)
     {
         if (damage <= 0f)
+        {
             return;
+        }
 
         if (IsDead())
+        {
             return;
+        }
 
         SetHealth(
             CurrentHealth - damage
@@ -75,34 +99,74 @@ public class Health : MonoBehaviour
         }
     }
 
+    // ====================================
+    // DAMAGE ANIMATION
+    // ====================================
+
     private void PlayDamageAnimation()
     {
         if (animator == null)
+        {
             return;
+        }
 
         animator.SetTrigger(
             GetDamageTrigger
         );
     }
 
+    // ====================================
+    // DEATH ANIMATION
+    // ====================================
+
     private void PlayDeathAnimation()
     {
         if (animator == null)
+        {
             return;
+        }
 
-        if (Random.value < 0.5f)
+        if (deathAnimationCount <= 0)
         {
-            animator.SetTrigger(
-                Death1Trigger
+            Debug.LogWarning(
+                $"[HEALTH] {name}: " +
+                "deathAnimationCount must be greater than 0."
             );
+
+            return;
         }
-        else
-        {
-            animator.SetTrigger(
-                Death2Trigger
+
+        // ====================================
+        // RANDOM DEATH INDEX
+        // ====================================
+
+        int deathIndex =
+            Random.Range(
+                0,
+                deathAnimationCount
             );
-        }
+
+        animator.SetInteger(
+            DeathIndexParameter,
+            deathIndex
+        );
+
+        // ====================================
+        // DEATH TRIGGER
+        // ====================================
+
+        animator.SetTrigger(
+            DeathTrigger
+        );
+
+        Debug.Log(
+            $"[DEATH] {name} | DeathIndex = {deathIndex}"
+        );
     }
+
+    // ====================================
+    // IS DEAD
+    // ====================================
 
     public bool IsDead()
     {
