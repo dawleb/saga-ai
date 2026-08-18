@@ -22,6 +22,20 @@ public class PlayerClickController : MonoBehaviour
 
     private GameObject selectedEnemyMarker;
 
+    // ====================================
+    // CURRENTLY SELECTED ENEMY
+    // ====================================
+
+    private Health selectedEnemy;
+
+    public Health SelectedEnemy
+    {
+        get
+        {
+            return selectedEnemy;
+        }
+    }
+
     public bool IsSelected
     {
         get
@@ -29,6 +43,10 @@ public class PlayerClickController : MonoBehaviour
             return isSelected;
         }
     }
+
+    // ====================================
+    // START
+    // ====================================
 
     private void Start()
     {
@@ -51,9 +69,12 @@ public class PlayerClickController : MonoBehaviour
 
         SetSelected(false);
 
-        // Make sure no enemy marker is selected at start.
         HideEnemySelection();
     }
+
+    // ====================================
+    // UPDATE
+    // ====================================
 
     private void Update()
     {
@@ -221,9 +242,13 @@ public class PlayerClickController : MonoBehaviour
             return;
         }
 
-        // If another enemy was selected,
-        // hide its marker first.
-        HideEnemySelection();
+        // Zapamiętujemy konkretny cel.
+        selectedEnemy =
+            enemy;
+
+        // Jeśli wcześniej zaznaczony był inny wróg,
+        // wyłączamy jego marker.
+        HideEnemySelectionVisualOnly();
 
         Transform marker =
             FindChildByName(
@@ -250,15 +275,27 @@ public class PlayerClickController : MonoBehaviour
         );
 
         Debug.Log(
+            $"[SELECTION] Enemy selected: {enemy.name}"
+        );
+
+        Debug.Log(
             $"[SELECTION] Enemy marker ON: {enemy.name}"
         );
     }
 
     // ====================================
-    // HIDE ENEMY MARKER
+    // HIDE ENEMY SELECTION
     // ====================================
 
     private void HideEnemySelection()
+    {
+        HideEnemySelectionVisualOnly();
+
+        selectedEnemy =
+            null;
+    }
+
+    private void HideEnemySelectionVisualOnly()
     {
         if (selectedEnemyMarker == null)
         {
@@ -273,7 +310,8 @@ public class PlayerClickController : MonoBehaviour
             "[SELECTION] Enemy marker OFF."
         );
 
-        selectedEnemyMarker = null;
+        selectedEnemyMarker =
+            null;
     }
 
     // ====================================
@@ -338,6 +376,10 @@ public class PlayerClickController : MonoBehaviour
             return;
         }
 
+        // Kliknięcie ziemi oznacza,
+        // że przestajemy celować w zombie.
+        HideEnemySelection();
+
         targetPosition.y =
             transform.position.y;
 
@@ -382,6 +424,11 @@ public class PlayerClickController : MonoBehaviour
         {
             return;
         }
+
+        // Bardzo ważne:
+        // kliknięty zombie pozostaje aktualnym celem.
+        selectedEnemy =
+            enemy;
 
         Collider enemyCollider =
             enemy.GetComponentInChildren<Collider>();
