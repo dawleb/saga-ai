@@ -23,6 +23,10 @@ public class SelectionController : MonoBehaviour
     private GameObject selectionBox;
     private LineRenderer selectionBoxLine;
 
+    // ====================================
+    // START
+    // ====================================
+
     private void Start()
     {
         if (mainCamera == null)
@@ -32,6 +36,10 @@ public class SelectionController : MonoBehaviour
 
         CreateSelectionBox();
     }
+
+    // ====================================
+    // UPDATE
+    // ====================================
 
     private void Update()
     {
@@ -44,8 +52,16 @@ public class SelectionController : MonoBehaviour
         HandleMouseInput();
     }
 
+    // ====================================
+    // MOUSE INPUT
+    // ====================================
+
     private void HandleMouseInput()
     {
+        // ====================================
+        // LEFT MOUSE BUTTON
+        // ====================================
+
         if (Mouse.current.leftButton.wasPressedThisFrame)
         {
             dragStartScreen =
@@ -98,13 +114,24 @@ public class SelectionController : MonoBehaviour
             HideSelectionBox();
         }
 
+        // ====================================
+        // RIGHT MOUSE BUTTON
+        // ====================================
+
         if (Mouse.current.rightButton.wasPressedThisFrame)
         {
             HandleRightClick();
         }
     }
 
-    // Left-click is used for selection and ranged attacks.
+    // ====================================
+    // LEFT CLICK
+    // ====================================
+    // LPM na soldierze = zaznaczenie.
+    // LPM na żywym wrogu = atak dystansowy.
+    // LPM na trupie = NIC.
+    // ====================================
+
     private void HandleLeftClick(
         Vector2 screenPosition)
     {
@@ -121,6 +148,10 @@ public class SelectionController : MonoBehaviour
             return;
         }
 
+        // ====================================
+        // OWN UNIT
+        // ====================================
+
         PlayerClickController clickedUnit =
             hit.collider.GetComponentInParent<
                 PlayerClickController
@@ -128,25 +159,54 @@ public class SelectionController : MonoBehaviour
 
         if (clickedUnit != null)
         {
-            SelectSingleUnit(clickedUnit);
+            SelectSingleUnit(
+                clickedUnit
+            );
+
             return;
         }
+
+        // ====================================
+        // ENEMY
+        // ====================================
 
         Health enemy =
             hit.collider.GetComponentInParent<Health>();
 
         if (enemy != null)
         {
-            HandleEnemyLeftClick(enemy);
+            // MARTWY WRÓG = IGNORUJEMY KLIKNIĘCIE
+            if (!IsEnemyAlive(enemy))
+            {
+                return;
+            }
+
+            HandleEnemyLeftClick(
+                enemy
+            );
+
             return;
         }
 
-        // Left-clicking the ground does not change the selection.
+        // ====================================
+        // GROUND
+        // ====================================
+
+        // LPM na ziemi nic nie robi.
     }
 
-    // Right-click is used for movement commands.
+    // ====================================
+    // RIGHT CLICK
+    // ====================================
+    // RMB na ziemi = ruch.
+    // RMB na żywym wrogu = ruch do niego.
+    // RMB na trupie = NIC.
+    // ====================================
+
     private void HandleRightClick()
     {
+        RemoveInvalidSelectedUnits();
+
         if (selectedUnits.Count == 0)
         {
             return;
@@ -168,27 +228,53 @@ public class SelectionController : MonoBehaviour
             return;
         }
 
+        // ====================================
+        // ENEMY
+        // ====================================
+
         Health enemy =
             hit.collider.GetComponentInParent<Health>();
 
         if (enemy != null)
         {
-            HandleEnemyRightClick(enemy);
+            // MARTWY WRÓG = NIC NIE ROBIMY
+            if (!IsEnemyAlive(enemy))
+            {
+                return;
+            }
+
+            HandleEnemyRightClick(
+                enemy
+            );
+
             return;
         }
 
-        HandleGroundRightClick(hit.point);
+        // ====================================
+        // GROUND
+        // ====================================
+
+        HandleGroundRightClick(
+            hit.point
+        );
     }
 
-    // Left-clicking an enemy only performs a ranged attack.
-    // It never calls MoveToEnemy().
+    // ====================================
+    // ENEMY LEFT CLICK
+    // ====================================
+    // LPM na żywego zombie = atak.
+    // NIE WOLNO tutaj wywołać MoveToEnemy().
+    // ====================================
+
     private void HandleEnemyLeftClick(
         Health enemy)
     {
-        if (enemy == null)
+        if (!IsEnemyAlive(enemy))
         {
             return;
         }
+
+        RemoveInvalidSelectedUnits();
 
         foreach (
             PlayerClickController unit
@@ -204,18 +290,27 @@ public class SelectionController : MonoBehaviour
                 continue;
             }
 
-            unit.AttackEnemyAtRange(enemy);
+            unit.AttackEnemyAtRange(
+                enemy
+            );
         }
     }
 
-    // Right-clicking an enemy moves the selected units toward it.
+    // ====================================
+    // ENEMY RIGHT CLICK
+    // ====================================
+    // RMB na żywego zombie = podejście.
+    // ====================================
+
     private void HandleEnemyRightClick(
         Health enemy)
     {
-        if (enemy == null)
+        if (!IsEnemyAlive(enemy))
         {
             return;
         }
+
+        RemoveInvalidSelectedUnits();
 
         foreach (
             PlayerClickController unit
@@ -231,14 +326,21 @@ public class SelectionController : MonoBehaviour
                 continue;
             }
 
-            unit.MoveToEnemy(enemy);
+            unit.MoveToEnemy(
+                enemy
+            );
         }
     }
 
-    // Right-clicking the ground moves all selected units.
+    // ====================================
+    // GROUND RIGHT CLICK
+    // ====================================
+
     private void HandleGroundRightClick(
         Vector3 targetPosition)
     {
+        RemoveInvalidSelectedUnits();
+
         foreach (
             PlayerClickController unit
             in selectedUnits)
@@ -254,6 +356,10 @@ public class SelectionController : MonoBehaviour
         }
     }
 
+    // ====================================
+    // SINGLE UNIT SELECTION
+    // ====================================
+
     private void SelectSingleUnit(
         PlayerClickController unit)
     {
@@ -264,8 +370,14 @@ public class SelectionController : MonoBehaviour
 
         ClearSelection();
 
-        SelectUnit(unit);
+        SelectUnit(
+            unit
+        );
     }
+
+    // ====================================
+    // BOX SELECTION
+    // ====================================
 
     private void SelectUnitsInBox(
         Vector2 start,
@@ -313,10 +425,16 @@ public class SelectionController : MonoBehaviour
             if (selectionRect.Contains(
                 unitScreenPosition))
             {
-                SelectUnit(unit);
+                SelectUnit(
+                    unit
+                );
             }
         }
     }
+
+    // ====================================
+    // SELECT UNIT
+    // ====================================
 
     private void SelectUnit(
         PlayerClickController unit)
@@ -331,8 +449,14 @@ public class SelectionController : MonoBehaviour
             selectedUnits.Add(unit);
         }
 
-        unit.SetSelected(true);
+        unit.SetSelected(
+            true
+        );
     }
+
+    // ====================================
+    // CLEAR SELECTION
+    // ====================================
 
     public void ClearSelection()
     {
@@ -342,12 +466,72 @@ public class SelectionController : MonoBehaviour
         {
             if (unit != null)
             {
-                unit.SetSelected(false);
+                unit.SetSelected(
+                    false
+                );
             }
         }
 
         selectedUnits.Clear();
     }
+
+    // ====================================
+    // REMOVE INVALID UNITS
+    // ====================================
+
+    private void RemoveInvalidSelectedUnits()
+    {
+        for (
+            int i = selectedUnits.Count - 1;
+            i >= 0;
+            i--)
+        {
+            PlayerClickController unit =
+                selectedUnits[i];
+
+            if (unit == null ||
+                !unit.gameObject.activeInHierarchy)
+            {
+                if (unit != null)
+                {
+                    unit.SetSelected(false);
+                }
+
+                selectedUnits.RemoveAt(i);
+            }
+        }
+    }
+
+    // ====================================
+    // CHECK ENEMY ALIVE
+    // ====================================
+
+    private bool IsEnemyAlive(
+        Health enemy)
+    {
+        if (enemy == null)
+        {
+            return false;
+        }
+
+        // GameObject nieaktywny = brak możliwości celu.
+        if (!enemy.gameObject.activeInHierarchy)
+        {
+            return false;
+        }
+
+        // Health <= 0 = trup.
+        if (enemy.IsDead())
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    // ====================================
+    // SCREEN RECT
+    // ====================================
 
     private Rect GetScreenRect(
         Vector2 start,
@@ -373,6 +557,10 @@ public class SelectionController : MonoBehaviour
         );
     }
 
+    // ====================================
+    // CREATE SELECTION BOX
+    // ====================================
+
     private void CreateSelectionBox()
     {
         selectionBox =
@@ -389,12 +577,20 @@ public class SelectionController : MonoBehaviour
                 LineRenderer
             >();
 
-        selectionBoxLine.useWorldSpace = true;
-        selectionBoxLine.loop = true;
-        selectionBoxLine.positionCount = 4;
+        selectionBoxLine.useWorldSpace =
+            true;
 
-        selectionBoxLine.startWidth = 0.015f;
-        selectionBoxLine.endWidth = 0.015f;
+        selectionBoxLine.loop =
+            true;
+
+        selectionBoxLine.positionCount =
+            4;
+
+        selectionBoxLine.startWidth =
+            0.015f;
+
+        selectionBoxLine.endWidth =
+            0.015f;
 
         selectionBoxLine.material =
             CreateSelectionMaterial();
@@ -408,10 +604,16 @@ public class SelectionController : MonoBehaviour
         HideSelectionBox();
     }
 
+    // ====================================
+    // CREATE SELECTION MATERIAL
+    // ====================================
+
     private Material CreateSelectionMaterial()
     {
         Shader shader =
-            Shader.Find("Sprites/Default");
+            Shader.Find(
+                "Sprites/Default"
+            );
 
         Material material =
             new Material(shader);
@@ -422,6 +624,10 @@ public class SelectionController : MonoBehaviour
         return material;
     }
 
+    // ====================================
+    // UPDATE SELECTION BOX
+    // ====================================
+
     private void UpdateSelectionBox(
         Vector2 start,
         Vector2 end)
@@ -431,7 +637,9 @@ public class SelectionController : MonoBehaviour
             return;
         }
 
-        selectionBox.SetActive(true);
+        selectionBox.SetActive(
+            true
+        );
 
         Vector2 min =
             Vector2.Min(
@@ -445,7 +653,8 @@ public class SelectionController : MonoBehaviour
                 end
             );
 
-        float distance = 5f;
+        float distance =
+            5f;
 
         Vector3 bottomLeft =
             mainCamera.ScreenToWorldPoint(
@@ -504,11 +713,17 @@ public class SelectionController : MonoBehaviour
         );
     }
 
+    // ====================================
+    // HIDE SELECTION BOX
+    // ====================================
+
     private void HideSelectionBox()
     {
         if (selectionBox != null)
         {
-            selectionBox.SetActive(false);
+            selectionBox.SetActive(
+                false
+            );
         }
     }
 }
