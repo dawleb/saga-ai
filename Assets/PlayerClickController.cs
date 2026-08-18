@@ -1,5 +1,4 @@
 using UnityEngine;
-using UnityEngine.InputSystem;
 
 public class PlayerClickController : MonoBehaviour
 {
@@ -15,38 +14,26 @@ public class PlayerClickController : MonoBehaviour
     [Tooltip("Marker placed as a child of the enemy/zombie.")]
     public string enemySelectionMarkerName = "SelectionMarker";
 
+    [Header("Ranged Attack")]
+    [Tooltip("Maximum distance at which the player can attack.")]
+    public float attackRange = 6f;
+
     [Header("Animation")]
     public Animator animator;
 
     private bool isSelected;
-
     private GameObject selectedEnemyMarker;
-
-    // ====================================
-    // CURRENTLY SELECTED ENEMY
-    // ====================================
-
     private Health selectedEnemy;
 
     public Health SelectedEnemy
     {
-        get
-        {
-            return selectedEnemy;
-        }
+        get { return selectedEnemy; }
     }
 
     public bool IsSelected
     {
-        get
-        {
-            return isSelected;
-        }
+        get { return isSelected; }
     }
-
-    // ====================================
-    // START
-    // ====================================
 
     private void Start()
     {
@@ -57,133 +44,26 @@ public class PlayerClickController : MonoBehaviour
 
         if (playerController == null)
         {
-            playerController =
-                GetComponent<PlayerController>();
+            playerController = GetComponent<PlayerController>();
         }
 
         if (animator == null)
         {
-            animator =
-                GetComponentInChildren<Animator>();
+            animator = GetComponentInChildren<Animator>();
         }
 
         SetSelected(false);
-
         HideEnemySelection();
     }
-
-    // ====================================
-    // UPDATE
-    // ====================================
 
     private void Update()
     {
         UpdateAnimation();
-
-        if (Mouse.current == null)
-        {
-            return;
-        }
-
-        if (!Mouse.current.leftButton.wasPressedThisFrame)
-        {
-            return;
-        }
-
-        if (mainCamera == null)
-        {
-            return;
-        }
-
-        Ray ray =
-            mainCamera.ScreenPointToRay(
-                Mouse.current.position.ReadValue()
-            );
-
-        if (!Physics.Raycast(
-            ray,
-            out RaycastHit hit,
-            100f
-        ))
-        {
-            return;
-        }
-
-        Debug.Log(
-            $"[PLAYER] Click hit: {hit.collider.name}"
-        );
-
-        // ====================================
-        // PLAYER CLICK
-        // ====================================
-
-        if (hit.collider.transform.IsChildOf(transform))
-        {
-            SetSelected(true);
-
-            HideEnemySelection();
-
-            Debug.Log(
-                "[PLAYER] Player selected"
-            );
-
-            return;
-        }
-
-        // ====================================
-        // PLAYER MUST BE SELECTED
-        // ====================================
-
-        if (!isSelected)
-        {
-            Debug.Log(
-                "[PLAYER] Player is not selected. " +
-                "Click ignored."
-            );
-
-            return;
-        }
-
-        // ====================================
-        // ENEMY CLICK
-        // ====================================
-
-        Health targetHealth =
-            hit.collider.GetComponentInParent<Health>();
-
-        if (targetHealth != null &&
-            targetHealth.gameObject != gameObject)
-        {
-            ShowEnemySelection(
-                targetHealth
-            );
-
-            MoveToEnemy(
-                targetHealth
-            );
-
-            return;
-        }
-
-        // ====================================
-        // GROUND CLICK
-        // ====================================
-
-        HideEnemySelection();
-
-        MoveToGround(
-            hit.point
-        );
     }
-
-    // ====================================
-    // ANIMATION
-    // ====================================
 
     private void UpdateAnimation()
     {
-        if (animator != null &&
-            playerController != null)
+        if (animator != null && playerController != null)
         {
             animator.SetBool(
                 "IsWalking",
@@ -192,34 +72,34 @@ public class PlayerClickController : MonoBehaviour
         }
     }
 
-    // ====================================
-    // PLAYER SELECTION
-    // ====================================
-
     public void SetSelected(bool selected)
     {
         isSelected = selected;
 
         if (selectionSquare != null)
         {
-            selectionSquare.SetActive(
-                selected
-            );
+            selectionSquare.SetActive(selected);
 
             if (selected)
             {
                 selectionSquare.transform.localPosition =
-                    new Vector3(
-                        0f,
-                        0.03f,
-                        0f
-                    );
+                    new Vector3(0f, 0.03f, 0f);
             }
         }
 
         if (!selected)
         {
             HideEnemySelection();
+
+            if (selectionRing != null)
+            {
+                selectionRing.SetActive(false);
+            }
+
+            if (playerController != null)
+            {
+                playerController.StopMovement();
+            }
         }
 
         Debug.Log(
@@ -229,26 +109,17 @@ public class PlayerClickController : MonoBehaviour
         );
     }
 
-    // ====================================
-    // SHOW ENEMY MARKER
-    // ====================================
-
-    private void ShowEnemySelection(
-        Health enemy
-    )
+    // Shows the enemy marker only for a right-click movement command.
+    private void ShowEnemySelection(Health enemy)
     {
         if (enemy == null)
         {
             return;
         }
 
-        // Zapamiętujemy konkretny cel.
-        selectedEnemy =
-            enemy;
-
-        // Jeśli wcześniej zaznaczony był inny wróg,
-        // wyłączamy jego marker.
         HideEnemySelectionVisualOnly();
+
+        selectedEnemy = enemy;
 
         Transform marker =
             FindChildByName(
@@ -259,40 +130,20 @@ public class PlayerClickController : MonoBehaviour
         if (marker == null)
         {
             Debug.LogWarning(
-                $"[SELECTION] Could not find " +
-                $"'{enemySelectionMarkerName}' " +
-                $"inside {enemy.name}."
+                $"[SELECTION] Could not find '{enemySelectionMarkerName}' inside {enemy.name}."
             );
 
             return;
         }
 
-        selectedEnemyMarker =
-            marker.gameObject;
-
-        selectedEnemyMarker.SetActive(
-            true
-        );
-
-        Debug.Log(
-            $"[SELECTION] Enemy selected: {enemy.name}"
-        );
-
-        Debug.Log(
-            $"[SELECTION] Enemy marker ON: {enemy.name}"
-        );
+        selectedEnemyMarker = marker.gameObject;
+        selectedEnemyMarker.SetActive(true);
     }
-
-    // ====================================
-    // HIDE ENEMY SELECTION
-    // ====================================
 
     private void HideEnemySelection()
     {
         HideEnemySelectionVisualOnly();
-
-        selectedEnemy =
-            null;
+        selectedEnemy = null;
     }
 
     private void HideEnemySelectionVisualOnly()
@@ -302,26 +153,13 @@ public class PlayerClickController : MonoBehaviour
             return;
         }
 
-        selectedEnemyMarker.SetActive(
-            false
-        );
-
-        Debug.Log(
-            "[SELECTION] Enemy marker OFF."
-        );
-
-        selectedEnemyMarker =
-            null;
+        selectedEnemyMarker.SetActive(false);
+        selectedEnemyMarker = null;
     }
-
-    // ====================================
-    // FIND CHILD RECURSIVELY
-    // ====================================
 
     private Transform FindChildByName(
         Transform parent,
-        string childName
-    )
+        string childName)
     {
         if (parent == null)
         {
@@ -335,8 +173,7 @@ public class PlayerClickController : MonoBehaviour
 
         for (int i = 0; i < parent.childCount; i++)
         {
-            Transform child =
-                parent.GetChild(i);
+            Transform child = parent.GetChild(i);
 
             Transform result =
                 FindChildByName(
@@ -353,31 +190,15 @@ public class PlayerClickController : MonoBehaviour
         return null;
     }
 
-    // ====================================
-    // MOVE TO GROUND
-    // ====================================
-
-    public void MoveToGround(
-        Vector3 targetPosition
-    )
+    // Right-click on the ground moves the unit to the selected position.
+    public void MoveToGround(Vector3 targetPosition)
     {
-        if (!isSelected)
-        {
-            Debug.Log(
-                "[PLAYER] Cannot move. " +
-                "Player is not selected."
-            );
-
-            return;
-        }
-
-        if (playerController == null)
+        if (!isSelected ||
+            playerController == null)
         {
             return;
         }
 
-        // Kliknięcie ziemi oznacza,
-        // że przestajemy celować w zombie.
         HideEnemySelection();
 
         targetPosition.y =
@@ -385,10 +206,7 @@ public class PlayerClickController : MonoBehaviour
 
         if (selectionRing != null)
         {
-            selectionRing.SetActive(
-                true
-            );
-
+            selectionRing.SetActive(true);
             selectionRing.transform.position =
                 targetPosition;
         }
@@ -398,37 +216,22 @@ public class PlayerClickController : MonoBehaviour
         );
 
         Debug.Log(
-            $"[PLAYER] MOVE TO: {targetPosition}"
+            $"[COMMAND] Move to position: {targetPosition}"
         );
     }
 
-    // ====================================
-    // MOVE TO ENEMY
-    // ====================================
-
-    public void MoveToEnemy(
-        Health enemy
-    )
+    // Right-click on an enemy moves the unit toward the enemy.
+    // This is the only command that shows the enemy marker.
+    public void MoveToEnemy(Health enemy)
     {
-        if (!isSelected)
+        if (!isSelected ||
+            playerController == null ||
+            enemy == null)
         {
             return;
         }
 
-        if (playerController == null)
-        {
-            return;
-        }
-
-        if (enemy == null)
-        {
-            return;
-        }
-
-        // Bardzo ważne:
-        // kliknięty zombie pozostaje aktualnym celem.
-        selectedEnemy =
-            enemy;
+        ShowEnemySelection(enemy);
 
         Collider enemyCollider =
             enemy.GetComponentInChildren<Collider>();
@@ -450,8 +253,7 @@ public class PlayerClickController : MonoBehaviour
 
         if (direction.sqrMagnitude < 0.01f)
         {
-            direction =
-                Vector3.back;
+            direction = Vector3.back;
         }
 
         direction.Normalize();
@@ -461,29 +263,100 @@ public class PlayerClickController : MonoBehaviour
                 transform.position
             );
 
-        Vector3 attackPosition =
+        Vector3 targetPosition =
             enemySurface +
             direction * 0.1f;
 
-        attackPosition.y =
+        targetPosition.y =
             transform.position.y;
 
         if (selectionRing != null)
         {
-            selectionRing.SetActive(
-                true
-            );
-
+            selectionRing.SetActive(true);
             selectionRing.transform.position =
-                attackPosition;
+                targetPosition;
         }
 
         playerController.MoveTo(
-            attackPosition
+            targetPosition
         );
 
         Debug.Log(
-            $"[PLAYER] MOVE TO ENEMY: {attackPosition}"
+            $"[COMMAND] Move to enemy: {enemy.name}"
+        );
+    }
+
+    // Left-clicking an enemy selects it as the attack target.
+    // The unit never moves because of this command.
+    public void AttackEnemyAtRange(Health enemy)
+    {
+        if (!isSelected ||
+            enemy == null)
+        {
+            return;
+        }
+
+        selectedEnemy = enemy;
+
+        // Show the enemy marker for the current attack target.
+        ShowEnemySelection(enemy);
+
+        Vector3 direction =
+            enemy.transform.position -
+            transform.position;
+
+        direction.y = 0f;
+
+        float distance =
+            direction.magnitude;
+
+        // Enemy is outside the weapon range.
+        // Keep the target selected, but do not move.
+        if (distance > attackRange)
+        {
+            Debug.Log(
+                $"[ATTACK] {enemy.name} is out of range. " +
+                $"Distance: {distance:F2}, " +
+                $"Range: {attackRange:F2}"
+            );
+
+            return;
+        }
+
+        // Face the enemy.
+        if (direction.sqrMagnitude > 0.01f)
+        {
+            transform.rotation =
+                Quaternion.LookRotation(
+                    direction.normalized
+                );
+        }
+
+        // The movement destination ring is not needed for an attack.
+        if (selectionRing != null)
+        {
+            selectionRing.SetActive(false);
+        }
+
+        // Fire without starting movement.
+        ShootAtEnemy(enemy);
+    }
+
+    private void ShootAtEnemy(Health enemy)
+    {
+        if (enemy == null)
+        {
+            return;
+        }
+
+        Debug.Log(
+            $"[ATTACK] Shooting at {enemy.name}"
+        );
+
+        gameObject.SendMessage(
+            "Attack",
+            enemy,
+            SendMessageOptions.DontRequireReceiver
         );
     }
 }

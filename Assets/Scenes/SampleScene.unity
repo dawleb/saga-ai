@@ -433,6 +433,7 @@ MonoBehaviour:
   selectionRing: {fileID: 691701346}
   selectionSquare: {fileID: 1553462260}
   enemySelectionMarkerName: SelectionMarker
+  attackRange: 6
   animator: {fileID: 0}
 --- !u!114 &466695711
 MonoBehaviour:
@@ -446,7 +447,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1a22dc16f206cfb47a34a621d9e07531, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CombatController
-  maxHealth: 200
+  maxHealth: 80
 --- !u!54 &466695713
 Rigidbody:
   m_ObjectHideFlags: 0
@@ -652,14 +653,20 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f1dbef6a0fcaeaa42bea763a425a1518, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CombatManager
-  player: {fileID: 0}
-  monster: {fileID: 0}
+  player: {fileID: 466695711}
+  monster: {fileID: 1069619711}
   roundCooldown: 1
   attackAnimationDuration: 0.8
   damageDelay: 0.35
   damageMin: 8
   damageMax: 15
   attackRange: 1.5
+  shootingRange: 8
+  shootingInterval: 1.2
+  shotsBeforeReload: 4
+  reloadDuration: 2
+  shootingDamageMin: 8
+  shootingDamageMax: 12
   combatRotationSpeed: 10
   monsterBiteChance: 0.5
   tauntDuration: 3
@@ -2208,7 +2215,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 919132149155446097, guid: 63dc5e1be5f80dc42a68625bcbc5ce38, type: 3}
       propertyPath: m_Name
-      value: Mercenary_Roger
+      value: Model
       objectReference: {fileID: 0}
     - target: {fileID: 1020306396740595751, guid: 63dc5e1be5f80dc42a68625bcbc5ce38, type: 3}
       propertyPath: m_Materials.Array.size

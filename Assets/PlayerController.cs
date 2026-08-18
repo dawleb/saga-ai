@@ -3,14 +3,13 @@ using UnityEngine;
 
 public class PlayerController : MonoBehaviour
 {
+    [Header("Movement")]
     public float moveSpeed = 4f;
     public float rotationSpeed = 10f;
 
     private Coroutine moveCoroutine;
 
-    // The height the character walks at, captured once at startup.
-    // Reading transform.position.y on every click meant that any drift in Y
-    // was baked into the next move, so the error grew click after click.
+    // The height the character uses for movement.
     private float movementHeight;
 
     public bool IsMoving { get; private set; }
@@ -18,21 +17,18 @@ public class PlayerController : MonoBehaviour
     private void Awake()
     {
         movementHeight = transform.position.y;
+        IsMoving = false;
     }
 
-    private void Update()
-    {
-        if (moveCoroutine == null)
-            IsMoving = false;
-    }
+    // ====================================
+    // MOVE TO
+    // ====================================
 
     public void MoveTo(Vector3 targetPosition)
     {
-        // Zachowujemy aktualną wysokość w WORLD SPACE.
         targetPosition.y = movementHeight;
 
-        if (moveCoroutine != null)
-            StopCoroutine(moveCoroutine);
+        StopMovement();
 
         moveCoroutine =
             StartCoroutine(
@@ -40,9 +36,27 @@ public class PlayerController : MonoBehaviour
             );
     }
 
+    // ====================================
+    // STOP MOVEMENT
+    // ====================================
+
+    public void StopMovement()
+    {
+        if (moveCoroutine != null)
+        {
+            StopCoroutine(moveCoroutine);
+            moveCoroutine = null;
+        }
+
+        IsMoving = false;
+    }
+
+    // ====================================
+    // MOVE COROUTINE
+    // ====================================
+
     private IEnumerator MoveToTarget(
-        Vector3 targetPosition
-    )
+        Vector3 targetPosition)
     {
         IsMoving = true;
 
@@ -55,16 +69,17 @@ public class PlayerController : MonoBehaviour
                 targetPosition -
                 currentPosition;
 
-            // Ruch tylko po X/Z.
             direction.y = 0f;
 
             float distance =
                 direction.magnitude;
 
             if (distance <= 0.05f)
+            {
                 break;
+            }
 
-            // Obrót w kierunku ruchu.
+            // Rotate toward the movement direction.
             if (direction.sqrMagnitude > 0.001f)
             {
                 Quaternion targetRotation =
@@ -81,7 +96,7 @@ public class PlayerController : MonoBehaviour
                     );
             }
 
-            // Ruch.
+            // Move toward the target.
             currentPosition =
                 Vector3.MoveTowards(
                     currentPosition,
@@ -90,7 +105,7 @@ public class PlayerController : MonoBehaviour
                     Time.deltaTime
                 );
 
-            // Nigdy nie zmieniaj wysokości.
+            // Keep the character at the fixed movement height.
             currentPosition.y =
                 targetPosition.y;
 

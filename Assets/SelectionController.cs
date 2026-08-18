@@ -35,7 +35,8 @@ public class SelectionController : MonoBehaviour
 
     private void Update()
     {
-        if (Mouse.current == null)
+        if (Mouse.current == null ||
+            mainCamera == null)
         {
             return;
         }
@@ -89,37 +90,34 @@ public class SelectionController : MonoBehaviour
             }
             else
             {
-                HandleSingleClick(
+                HandleLeftClick(
                     mousePosition
                 );
             }
 
             HideSelectionBox();
         }
+
+        if (Mouse.current.rightButton.wasPressedThisFrame)
+        {
+            HandleRightClick();
+        }
     }
 
-    private void HandleSingleClick(
-        Vector2 screenPosition
-    )
+    // Left-click is used for selection and ranged attacks.
+    private void HandleLeftClick(
+        Vector2 screenPosition)
     {
-        if (mainCamera == null)
-        {
-            return;
-        }
-
         Ray ray =
             mainCamera.ScreenPointToRay(
                 screenPosition
             );
 
         if (!Physics.Raycast(
-            ray,
-            out RaycastHit hit,
-            500f
-        ))
+                ray,
+                out RaycastHit hit,
+                500f))
         {
-            ClearSelection();
-
             return;
         }
 
@@ -130,10 +128,7 @@ public class SelectionController : MonoBehaviour
 
         if (clickedUnit != null)
         {
-            SelectSingleUnit(
-                clickedUnit
-            );
-
+            SelectSingleUnit(clickedUnit);
             return;
         }
 
@@ -142,42 +137,111 @@ public class SelectionController : MonoBehaviour
 
         if (enemy != null)
         {
-            HandleEnemyClick(
-                enemy
-            );
-
+            HandleEnemyLeftClick(enemy);
             return;
         }
 
-        HandleGroundClick(
-            hit.point
-        );
+        // Left-clicking the ground does not change the selection.
     }
 
-    private void SelectSingleUnit(
-        PlayerClickController unit
-    )
-    {
-        ClearSelection();
-
-        SelectUnit(
-            unit
-        );
-    }
-
-    private void HandleGroundClick(
-        Vector3 targetPosition
-    )
+    // Right-click is used for movement commands.
+    private void HandleRightClick()
     {
         if (selectedUnits.Count == 0)
         {
             return;
         }
 
+        Vector2 mousePosition =
+            Mouse.current.position.ReadValue();
+
+        Ray ray =
+            mainCamera.ScreenPointToRay(
+                mousePosition
+            );
+
+        if (!Physics.Raycast(
+                ray,
+                out RaycastHit hit,
+                500f))
+        {
+            return;
+        }
+
+        Health enemy =
+            hit.collider.GetComponentInParent<Health>();
+
+        if (enemy != null)
+        {
+            HandleEnemyRightClick(enemy);
+            return;
+        }
+
+        HandleGroundRightClick(hit.point);
+    }
+
+    // Left-clicking an enemy only performs a ranged attack.
+    // It never calls MoveToEnemy().
+    private void HandleEnemyLeftClick(
+        Health enemy)
+    {
+        if (enemy == null)
+        {
+            return;
+        }
+
         foreach (
             PlayerClickController unit
-            in selectedUnits
-        )
+            in selectedUnits)
+        {
+            if (unit == null)
+            {
+                continue;
+            }
+
+            if (enemy.gameObject == unit.gameObject)
+            {
+                continue;
+            }
+
+            unit.AttackEnemyAtRange(enemy);
+        }
+    }
+
+    // Right-clicking an enemy moves the selected units toward it.
+    private void HandleEnemyRightClick(
+        Health enemy)
+    {
+        if (enemy == null)
+        {
+            return;
+        }
+
+        foreach (
+            PlayerClickController unit
+            in selectedUnits)
+        {
+            if (unit == null)
+            {
+                continue;
+            }
+
+            if (enemy.gameObject == unit.gameObject)
+            {
+                continue;
+            }
+
+            unit.MoveToEnemy(enemy);
+        }
+    }
+
+    // Right-clicking the ground moves all selected units.
+    private void HandleGroundRightClick(
+        Vector3 targetPosition)
+    {
+        foreach (
+            PlayerClickController unit
+            in selectedUnits)
         {
             if (unit == null)
             {
@@ -190,40 +254,22 @@ public class SelectionController : MonoBehaviour
         }
     }
 
-    private void HandleEnemyClick(
-        Health enemy
-    )
+    private void SelectSingleUnit(
+        PlayerClickController unit)
     {
-        if (selectedUnits.Count == 0)
+        if (unit == null)
         {
             return;
         }
 
-        foreach (
-            PlayerClickController unit
-            in selectedUnits
-        )
-        {
-            if (unit == null)
-            {
-                continue;
-            }
+        ClearSelection();
 
-            if (enemy.gameObject == unit.gameObject)
-            {
-                continue;
-            }
-
-            unit.MoveToEnemy(
-                enemy
-            );
-        }
+        SelectUnit(unit);
     }
 
     private void SelectUnitsInBox(
         Vector2 start,
-        Vector2 end
-    )
+        Vector2 end)
     {
         ClearSelection();
 
@@ -240,15 +286,10 @@ public class SelectionController : MonoBehaviour
 
         foreach (
             PlayerClickController unit
-            in units
-        )
+            in units)
         {
-            if (unit == null)
-            {
-                continue;
-            }
-
-            if (!unit.gameObject.activeInHierarchy)
+            if (unit == null ||
+                !unit.gameObject.activeInHierarchy)
             {
                 continue;
             }
@@ -270,19 +311,15 @@ public class SelectionController : MonoBehaviour
                 );
 
             if (selectionRect.Contains(
-                unitScreenPosition
-            ))
+                unitScreenPosition))
             {
-                SelectUnit(
-                    unit
-                );
+                SelectUnit(unit);
             }
         }
     }
 
     private void SelectUnit(
-        PlayerClickController unit
-    )
+        PlayerClickController unit)
     {
         if (unit == null)
         {
@@ -294,23 +331,18 @@ public class SelectionController : MonoBehaviour
             selectedUnits.Add(unit);
         }
 
-        unit.SetSelected(
-            true
-        );
+        unit.SetSelected(true);
     }
 
     public void ClearSelection()
     {
         foreach (
             PlayerClickController unit
-            in selectedUnits
-        )
+            in selectedUnits)
         {
             if (unit != null)
             {
-                unit.SetSelected(
-                    false
-                );
+                unit.SetSelected(false);
             }
         }
 
@@ -319,8 +351,7 @@ public class SelectionController : MonoBehaviour
 
     private Rect GetScreenRect(
         Vector2 start,
-        Vector2 end
-    )
+        Vector2 end)
     {
         Vector2 min =
             Vector2.Min(
@@ -358,20 +389,12 @@ public class SelectionController : MonoBehaviour
                 LineRenderer
             >();
 
-        selectionBoxLine.useWorldSpace =
-            true;
+        selectionBoxLine.useWorldSpace = true;
+        selectionBoxLine.loop = true;
+        selectionBoxLine.positionCount = 4;
 
-        selectionBoxLine.loop =
-            true;
-
-        selectionBoxLine.positionCount =
-            4;
-
-        selectionBoxLine.startWidth =
-            0.015f;
-
-        selectionBoxLine.endWidth =
-            0.015f;
+        selectionBoxLine.startWidth = 0.015f;
+        selectionBoxLine.endWidth = 0.015f;
 
         selectionBoxLine.material =
             CreateSelectionMaterial();
@@ -388,9 +411,7 @@ public class SelectionController : MonoBehaviour
     private Material CreateSelectionMaterial()
     {
         Shader shader =
-            Shader.Find(
-                "Sprites/Default"
-            );
+            Shader.Find("Sprites/Default");
 
         Material material =
             new Material(shader);
@@ -401,19 +422,16 @@ public class SelectionController : MonoBehaviour
         return material;
     }
 
-   private void UpdateSelectionBox(
-    Vector2 start,
-    Vector2 end
-    )
+    private void UpdateSelectionBox(
+        Vector2 start,
+        Vector2 end)
     {
         if (selectionBox == null)
         {
             return;
         }
 
-        selectionBox.SetActive(
-            true
-        );
+        selectionBox.SetActive(true);
 
         Vector2 min =
             Vector2.Min(
@@ -427,8 +445,7 @@ public class SelectionController : MonoBehaviour
                 end
             );
 
-        float distance =
-            5f;
+        float distance = 5f;
 
         Vector3 bottomLeft =
             mainCamera.ScreenToWorldPoint(
@@ -466,9 +483,6 @@ public class SelectionController : MonoBehaviour
                 )
             );
 
-        selectionBoxLine.positionCount =
-            4;
-
         selectionBoxLine.SetPosition(
             0,
             bottomLeft
@@ -490,42 +504,11 @@ public class SelectionController : MonoBehaviour
         );
     }
 
-    private Vector3 ScreenToGround(
-        Vector2 screenPosition
-    )
-    {
-        Ray ray =
-            mainCamera.ScreenPointToRay(
-                screenPosition
-            );
-
-        Plane groundPlane =
-            new Plane(
-                Vector3.up,
-                Vector3.zero
-            );
-
-        if (groundPlane.Raycast(
-            ray,
-            out float distance
-        ))
-        {
-            return ray.GetPoint(
-                distance
-            ) +
-                Vector3.up * 0.03f;
-        }
-
-        return Vector3.zero;
-    }
-
     private void HideSelectionBox()
     {
         if (selectionBox != null)
         {
-            selectionBox.SetActive(
-                false
-            );
+            selectionBox.SetActive(false);
         }
     }
 }
