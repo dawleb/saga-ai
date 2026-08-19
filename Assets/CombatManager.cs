@@ -14,7 +14,7 @@ public class CombatManager : MonoBehaviour
     public float attackAnimationDuration = 0.8f;
     public float damageDelay = 0.35f;
 
-    [Header("Damage")]
+    [Header("Melee Damage")]
     public float damageMin = 8f;
     public float damageMax = 15f;
 
@@ -35,7 +35,18 @@ public class CombatManager : MonoBehaviour
     public float shootingDamageMin = 8f;
     public float shootingDamageMax = 12f;
 
+    [Header("Shooting Aim")]
+    [Tooltip("Optional Animator trigger played before Shooting.")]
+    public float aimDuration = 0.15f;
+
+    [Tooltip("How quickly the Soldier rotates toward the target.")]
+    public float shootingRotationSpeed = 25f;
+
+    [Tooltip("Keep correcting Soldier rotation while aiming/shooting.")]
+    public bool continuouslyCorrectAim = true;
+
     [Header("Combat Rotation")]
+    [Tooltip("How quickly characters rotate during melee.")]
     public float combatRotationSpeed = 10f;
 
     [Header("Monster Attacks")]
@@ -45,6 +56,10 @@ public class CombatManager : MonoBehaviour
     [Header("Victory")]
     public float tauntDuration = 3f;
 
+    [Header("Player Height Protection")]
+    [Tooltip("Keeps Soldier at his original Y position during combat.")]
+    public bool lockPlayerHeight = true;
+
     // ====================================
     // ANIMATOR PARAMETERS
     // ====================================
@@ -52,6 +67,7 @@ public class CombatManager : MonoBehaviour
     private const string AttackTrigger = "Attack";
     private const string BiteTrigger = "Bite";
 
+    private const string AimTrigger = "Aim";
     private const string ShootingTrigger = "Shooting";
     private const string ReloadingTrigger = "Reloading";
 
@@ -73,6 +89,7 @@ public class CombatManager : MonoBehaviour
     private Animator monsterAnimator;
 
     private PlayerClickController playerClickController;
+    private PlayerController playerController;
 
     // ====================================
     // STATE
@@ -85,6 +102,8 @@ public class CombatManager : MonoBehaviour
     private bool isReloading;
 
     private int shotsFired;
+
+    private float playerCombatHeight;
 
     // ====================================
     // UNITY
@@ -126,6 +145,21 @@ public class CombatManager : MonoBehaviour
             );
 
         FindPlayerClickController();
+        FindPlayerController();
+
+        if (player != null)
+        {
+            playerCombatHeight =
+                player.transform.position.y;
+        }
+
+        DisableRootMotion(
+            playerAnimator
+        );
+
+        DisableRootMotion(
+            monsterAnimator
+        );
 
         if (player != null &&
             monster != null)
@@ -143,6 +177,67 @@ public class CombatManager : MonoBehaviour
         }
     }
 
+    private void Update()
+    {
+        if (fightFinished)
+            return;
+
+        if (player == null ||
+            monster == null)
+            return;
+
+        if (!player.gameObject.activeInHierarchy ||
+            !monster.gameObject.activeInHierarchy)
+            return;
+
+        if (player.IsDead() ||
+            monster.IsDead())
+            return;
+
+        // Prevent Soldier from sliding vertically.
+        KeepPlayerAtCombatHeight();
+
+        float distance =
+            Vector3.Distance(
+                player.transform.position,
+                monster.transform.position
+            );
+
+        // ====================================
+        // MELEE
+        // ====================================
+
+        if (distance <= attackRange)
+        {
+            RotateTowardsOpponent(
+                player.transform,
+                monster.transform
+            );
+
+            RotateTowardsOpponent(
+                monster.transform,
+                player.transform
+            );
+
+            HandleMeleeCombat(
+                distance
+            );
+
+            return;
+        }
+
+        // ====================================
+        // RANGED
+        // ====================================
+
+        if (HasSelectedEnemy())
+        {
+            HandleRangedCombat(
+                distance
+            );
+        }
+    }
+
     // ====================================
     // FIND COMBATANTS
     // ====================================
@@ -150,7 +245,9 @@ public class CombatManager : MonoBehaviour
     private void FindCombatants()
     {
         Health[] healthObjects =
-            FindObjectsByType<Health>();
+            FindObjectsByType<Health>(
+                FindObjectsSortMode.None
+            );
 
         foreach (Health health in healthObjects)
         {
@@ -180,8 +277,14 @@ public class CombatManager : MonoBehaviour
         }
     }
 
+    // ====================================
+    // FIND PLAYER CLICK CONTROLLER
+    // ====================================
+
     private void FindPlayerClickController()
     {
+        playerClickController = null;
+
         if (player == null)
             return;
 
@@ -205,12 +308,14 @@ public class CombatManager : MonoBehaviour
     // FIND PLAYER CONTROLLER
     // ====================================
 
-    private PlayerController FindPlayerController()
+    private void FindPlayerController()
     {
-        if (player == null)
-            return null;
+        playerController = null;
 
-        PlayerController playerController =
+        if (player == null)
+            return;
+
+        playerController =
             player.GetComponent<PlayerController>();
 
         if (playerController == null)
@@ -224,8 +329,6 @@ public class CombatManager : MonoBehaviour
             playerController =
                 player.GetComponentInChildren<PlayerController>();
         }
-
-        return playerController;
     }
 
     // ====================================
@@ -259,6 +362,48 @@ public class CombatManager : MonoBehaviour
         }
 
         return animator;
+    }
+
+    // ====================================
+    // ROOT MOTION
+    // ====================================
+
+    private void DisableRootMotion(
+        Animator animator
+    )
+    {
+        if (animator == null)
+            return;
+
+        animator.applyRootMotion = false;
+    }
+
+    // ====================================
+    // HEIGHT PROTECTION
+    // ====================================
+
+    private void KeepPlayerAtCombatHeight()
+    {
+        if (!lockPlayerHeight)
+            return;
+
+        if (player == null)
+            return;
+
+        Vector3 position =
+            player.transform.position;
+
+        if (Mathf.Abs(
+                position.y -
+                playerCombatHeight
+            ) > 0.001f)
+        {
+            position.y =
+                playerCombatHeight;
+
+            player.transform.position =
+                position;
+        }
     }
 
     // ====================================
@@ -314,68 +459,6 @@ public class CombatManager : MonoBehaviour
     }
 
     // ====================================
-    // UPDATE
-    // ====================================
-
-    private void Update()
-    {
-        if (fightFinished)
-            return;
-
-        if (player == null ||
-            monster == null)
-            return;
-
-        if (!player.gameObject.activeInHierarchy ||
-            !monster.gameObject.activeInHierarchy)
-            return;
-
-        if (player.IsDead() ||
-            monster.IsDead())
-            return;
-
-        float distance =
-            Vector3.Distance(
-                player.transform.position,
-                monster.transform.position
-            );
-
-        // ====================================
-        // VERY CLOSE = MELEE
-        // ====================================
-
-        if (distance <= attackRange)
-        {
-            RotateTowardsOpponent(
-                player.transform,
-                monster.transform
-            );
-
-            RotateTowardsOpponent(
-                monster.transform,
-                player.transform
-            );
-
-            HandleMeleeCombat(
-                distance
-            );
-
-            return;
-        }
-
-        // ====================================
-        // PLAYER RANGED COMBAT
-        // ====================================
-
-        if (HasSelectedEnemy())
-        {
-            HandleRangedCombat(
-                distance
-            );
-        }
-    }
-
-    // ====================================
     // SELECTED ENEMY
     // ====================================
 
@@ -385,7 +468,8 @@ public class CombatManager : MonoBehaviour
             return false;
 
         return
-            playerClickController.SelectedEnemy == monster;
+            playerClickController.SelectedEnemy ==
+            monster;
     }
 
     // ====================================
@@ -444,7 +528,8 @@ public class CombatManager : MonoBehaviour
         if (!fightFinished)
         {
             nextRoundTime =
-                Time.time + roundCooldown;
+                Time.time +
+                roundCooldown;
         }
 
         roundInProgress = false;
@@ -510,7 +595,8 @@ public class CombatManager : MonoBehaviour
             if (hasBite && hasAttack)
             {
                 selectedTrigger =
-                    Random.value < monsterBiteChance
+                    Random.value <
+                    monsterBiteChance
                         ? BiteTrigger
                         : AttackTrigger;
             }
@@ -547,10 +633,10 @@ public class CombatManager : MonoBehaviour
             );
 
             if (HasParameter(
-                attackerAnimator,
-                selectedTrigger,
-                AnimatorControllerParameterType.Trigger
-            ))
+                    attackerAnimator,
+                    selectedTrigger,
+                    AnimatorControllerParameterType.Trigger
+                ))
             {
                 attackerAnimator.SetTrigger(
                     selectedTrigger
@@ -637,10 +723,11 @@ public class CombatManager : MonoBehaviour
         if (isReloading)
             return;
 
-        RotateTowardsOpponent(
-            player.transform,
-            monster.transform
-        );
+        // Soldier must be completely stopped.
+        StopPlayerMovementOnly();
+
+        // Keep facing target.
+        RotateSoldierTowardsTarget();
 
         if (roundInProgress)
             return;
@@ -654,7 +741,7 @@ public class CombatManager : MonoBehaviour
     }
 
     // ====================================
-    // SHOOT
+    // SHOOT SEQUENCE
     // ====================================
 
     private IEnumerator PerformShoot()
@@ -687,45 +774,171 @@ public class CombatManager : MonoBehaviour
             yield break;
         }
 
-        RotateTowardsOpponent(
-            player.transform,
-            monster.transform
-        );
-
         // ====================================
-        // SHOOT ANIMATION
+        // STEP 1 - STOP
         // ====================================
 
-        if (playerAnimator != null)
+        StopPlayerMovementOnly();
+
+        // ====================================
+        // STEP 2 - AIM
+        // ====================================
+
+        RotateSoldierTowardsTarget();
+
+        if (playerAnimator != null &&
+            HasParameter(
+                playerAnimator,
+                AimTrigger,
+                AnimatorControllerParameterType.Trigger
+            ))
         {
-            if (HasParameter(
+            SafeResetTrigger(
+                playerAnimator,
+                AimTrigger
+            );
+
+            SafeResetTrigger(
+                playerAnimator,
+                ShootingTrigger
+            );
+
+            playerAnimator.SetTrigger(
+                AimTrigger
+            );
+
+            Debug.Log(
+                "[COMBAT] Soldier AIM."
+            );
+        }
+
+        // ====================================
+        // STEP 3 - AIM TIME
+        // ====================================
+
+        float aimTimer = 0f;
+
+        while (aimTimer < aimDuration)
+        {
+            if (fightFinished)
+            {
+                roundInProgress = false;
+                yield break;
+            }
+
+            if (player == null ||
+                monster == null)
+            {
+                roundInProgress = false;
+                yield break;
+            }
+
+            if (player.IsDead() ||
+                monster.IsDead())
+            {
+                roundInProgress = false;
+                yield break;
+            }
+
+            distance =
+                Vector3.Distance(
+                    player.transform.position,
+                    monster.transform.position
+                );
+
+            if (distance > shootingRange)
+            {
+                roundInProgress = false;
+                yield break;
+            }
+
+            // Keep Soldier perfectly aimed.
+            RotateSoldierTowardsTarget();
+
+            // Keep him at the correct Y.
+            KeepPlayerAtCombatHeight();
+
+            aimTimer +=
+                Time.deltaTime;
+
+            yield return null;
+        }
+
+        // ====================================
+        // STEP 4 - FINAL AIM
+        // ====================================
+
+        RotateSoldierTowardsTarget();
+
+        // ====================================
+        // STEP 5 - SHOOT
+        // ====================================
+
+        if (playerAnimator != null &&
+            HasParameter(
                 playerAnimator,
                 ShootingTrigger,
                 AnimatorControllerParameterType.Trigger
             ))
-            {
-                SafeResetTrigger(
-                    playerAnimator,
-                    ShootingTrigger
-                );
+        {
+            SafeResetTrigger(
+                playerAnimator,
+                ShootingTrigger
+            );
 
-                playerAnimator.SetTrigger(
-                    ShootingTrigger
-                );
+            playerAnimator.SetTrigger(
+                ShootingTrigger
+            );
 
-                Debug.Log(
-                    "[COMBAT] Soldier Shooting."
-                );
-            }
+            Debug.Log(
+                "[COMBAT] Soldier SHOOTING."
+            );
         }
 
         // ====================================
-        // DAMAGE DELAY
+        // STEP 6 - SHOOT DELAY
         // ====================================
 
-        yield return new WaitForSeconds(
-            damageDelay
-        );
+        float elapsed = 0f;
+
+        while (elapsed < damageDelay)
+        {
+            if (fightFinished)
+            {
+                roundInProgress = false;
+                yield break;
+            }
+
+            if (player == null ||
+                monster == null)
+            {
+                roundInProgress = false;
+                yield break;
+            }
+
+            if (player.IsDead() ||
+                monster.IsDead())
+            {
+                roundInProgress = false;
+                yield break;
+            }
+
+            if (continuouslyCorrectAim)
+            {
+                RotateSoldierTowardsTarget();
+            }
+
+            KeepPlayerAtCombatHeight();
+
+            elapsed +=
+                Time.deltaTime;
+
+            yield return null;
+        }
+
+        // ====================================
+        // FINAL VALIDATION
+        // ====================================
 
         if (fightFinished)
         {
@@ -751,6 +964,9 @@ public class CombatManager : MonoBehaviour
             roundInProgress = false;
             yield break;
         }
+
+        // Final correction before bullet damage.
+        RotateSoldierTowardsTarget();
 
         // ====================================
         // DAMAGE
@@ -804,9 +1020,88 @@ public class CombatManager : MonoBehaviour
         }
 
         nextRoundTime =
-            Time.time + shootingInterval;
+            Time.time +
+            shootingInterval;
 
         roundInProgress = false;
+    }
+
+    // ====================================
+    // ROTATE SOLDIER
+    // ====================================
+
+    private void RotateSoldierTowardsTarget()
+    {
+        if (player == null ||
+            monster == null)
+        {
+            return;
+        }
+
+        Vector3 aimPosition =
+            GetAimPosition(
+                monster
+            );
+
+        Vector3 direction =
+            aimPosition -
+            player.transform.position;
+
+        // Soldier rotates only horizontally.
+        direction.y = 0f;
+
+        if (direction.sqrMagnitude < 0.001f)
+            return;
+
+        Quaternion targetRotation =
+            Quaternion.LookRotation(
+                direction.normalized,
+                Vector3.up
+            );
+
+        player.transform.rotation =
+            Quaternion.Slerp(
+                player.transform.rotation,
+                targetRotation,
+                shootingRotationSpeed *
+                Time.deltaTime
+            );
+    }
+
+    // ====================================
+    // AIM POSITION
+    // ====================================
+
+    private Vector3 GetAimPosition(
+        Health target
+    )
+    {
+        if (target == null)
+            return Vector3.zero;
+
+        Collider targetCollider =
+            target.GetComponentInChildren<Collider>();
+
+        if (targetCollider != null)
+        {
+            Bounds bounds =
+                targetCollider.bounds;
+
+            // Aim around upper-middle of enemy.
+            return new Vector3(
+                bounds.center.x,
+                bounds.min.y +
+                bounds.size.y * 0.65f,
+                bounds.center.z
+            );
+        }
+
+        Vector3 position =
+            target.transform.position;
+
+        position.y += 1f;
+
+        return position;
     }
 
     // ====================================
@@ -820,17 +1115,29 @@ public class CombatManager : MonoBehaviour
 
         isReloading = true;
 
+        StopPlayerMovementOnly();
+
         Debug.Log(
             "[COMBAT] Soldier Reloading."
         );
 
         if (playerAnimator != null)
         {
-            if (HasParameter(
+            SafeResetTrigger(
                 playerAnimator,
-                ReloadingTrigger,
-                AnimatorControllerParameterType.Trigger
-            ))
+                AimTrigger
+            );
+
+            SafeResetTrigger(
+                playerAnimator,
+                ShootingTrigger
+            );
+
+            if (HasParameter(
+                    playerAnimator,
+                    ReloadingTrigger,
+                    AnimatorControllerParameterType.Trigger
+                ))
             {
                 SafeResetTrigger(
                     playerAnimator,
@@ -843,9 +1150,23 @@ public class CombatManager : MonoBehaviour
             }
         }
 
-        yield return new WaitForSeconds(
-            reloadDuration
-        );
+        float elapsed = 0f;
+
+        while (elapsed < reloadDuration)
+        {
+            if (fightFinished)
+            {
+                isReloading = false;
+                yield break;
+            }
+
+            KeepPlayerAtCombatHeight();
+
+            elapsed +=
+                Time.deltaTime;
+
+            yield return null;
+        }
 
         shotsFired = 0;
 
@@ -882,7 +1203,8 @@ public class CombatManager : MonoBehaviour
 
         Quaternion targetRotation =
             Quaternion.LookRotation(
-                direction
+                direction.normalized,
+                Vector3.up
             );
 
         fighter.rotation =
@@ -892,6 +1214,38 @@ public class CombatManager : MonoBehaviour
                 combatRotationSpeed *
                 Time.deltaTime
             );
+    }
+
+    // ====================================
+    // STOP PLAYER MOVEMENT
+    // ====================================
+
+    private void StopPlayerMovementOnly()
+    {
+        if (playerController == null)
+        {
+            FindPlayerController();
+        }
+
+        if (playerController != null)
+        {
+            playerController.StopMovement();
+        }
+
+        if (playerAnimator != null &&
+            HasParameter(
+                playerAnimator,
+                WalkingBool,
+                AnimatorControllerParameterType.Bool
+            ))
+        {
+            playerAnimator.SetBool(
+                WalkingBool,
+                false
+            );
+        }
+
+        KeepPlayerAtCombatHeight();
     }
 
     // ====================================
@@ -907,23 +1261,19 @@ public class CombatManager : MonoBehaviour
             return;
 
         if (!HasParameter(
-            animator,
-            GetDamageTrigger,
-            AnimatorControllerParameterType.Trigger
-        ))
+                animator,
+                GetDamageTrigger,
+                AnimatorControllerParameterType.Trigger
+            ))
         {
             return;
         }
 
-        // ====================================
-        // RANDOM DAMAGE ANIMATION
-        // ====================================
-
         if (HasParameter(
-            animator,
-            GetDamageIndexInt,
-            AnimatorControllerParameterType.Int
-        ))
+                animator,
+                GetDamageIndexInt,
+                AnimatorControllerParameterType.Int
+            ))
         {
             int randomIndex =
                 Random.Range(
@@ -980,6 +1330,24 @@ public class CombatManager : MonoBehaviour
         );
 
         // ====================================
+        // HIDE PLAYER SELECTION
+        // ====================================
+
+        if (playerClickController != null)
+        {
+            playerClickController.SetSelected(
+                false
+            );
+
+            playerClickController.enabled =
+                false;
+
+            Debug.Log(
+                "[COMBAT] Player selection visuals disabled."
+            );
+        }
+
+        // ====================================
         // PLAYER DEATH
         // ====================================
 
@@ -1004,13 +1372,25 @@ public class CombatManager : MonoBehaviour
             }
         }
 
+        // ====================================
+        // HEALTH BAR
+        // ====================================
+
         HideHealthBar(
             loser
         );
 
+        // ====================================
+        // DEATH
+        // ====================================
+
         PlayDeath(
             loser
         );
+
+        // ====================================
+        // VICTORY
+        // ====================================
 
         if (playerWon)
         {
@@ -1027,28 +1407,19 @@ public class CombatManager : MonoBehaviour
     }
 
     // ====================================
-    // STOP PLAYER MOVEMENT
+    // STOP PLAYER AFTER DEATH
     // ====================================
 
     private void StopPlayerMovement()
     {
-        PlayerController playerController =
-            FindPlayerController();
+        FindPlayerController();
 
         if (playerController != null)
         {
             playerController.SetDead();
 
             Debug.Log(
-                "[COMBAT] PlayerController marked as dead. " +
-                "Movement stopped."
-            );
-        }
-        else
-        {
-            Debug.LogWarning(
-                "[COMBAT] PlayerController not found. " +
-                "Unable to stop player movement."
+                "[COMBAT] PlayerController marked as dead."
             );
         }
 
@@ -1056,7 +1427,12 @@ public class CombatManager : MonoBehaviour
 
         if (playerClickController != null)
         {
-            playerClickController.enabled = false;
+            playerClickController.SetSelected(
+                false
+            );
+
+            playerClickController.enabled =
+                false;
 
             Debug.Log(
                 "[COMBAT] PlayerClickController disabled."
@@ -1089,7 +1465,8 @@ public class CombatManager : MonoBehaviour
 
             foreach (Transform child in children)
             {
-                if (child.name == "HealthBarAnchor")
+                if (child.name ==
+                    "HealthBarAnchor")
                 {
                     anchor = child;
                     break;
@@ -1111,9 +1488,7 @@ public class CombatManager : MonoBehaviour
                 true
             );
 
-        foreach (
-            HealthBar healthBar
-            in healthBars)
+        foreach (HealthBar healthBar in healthBars)
         {
             if (healthBar != null)
             {
@@ -1135,10 +1510,6 @@ public class CombatManager : MonoBehaviour
         if (loser == null)
             return;
 
-        // ====================================
-        // STOP PLAYER MOVEMENT IMMEDIATELY
-        // ====================================
-
         if (loser == player)
         {
             StopPlayerMovement();
@@ -1156,7 +1527,7 @@ public class CombatManager : MonoBehaviour
             false;
 
         // ====================================
-        // RESET COMBAT TRIGGERS
+        // RESET TRIGGERS
         // ====================================
 
         SafeResetTrigger(
@@ -1167,6 +1538,11 @@ public class CombatManager : MonoBehaviour
         SafeResetTrigger(
             loserAnimator,
             BiteTrigger
+        );
+
+        SafeResetTrigger(
+            loserAnimator,
+            AimTrigger
         );
 
         SafeResetTrigger(
@@ -1194,10 +1570,10 @@ public class CombatManager : MonoBehaviour
         // ====================================
 
         if (HasParameter(
-            loserAnimator,
-            WalkingBool,
-            AnimatorControllerParameterType.Bool
-        ))
+                loserAnimator,
+                WalkingBool,
+                AnimatorControllerParameterType.Bool
+            ))
         {
             loserAnimator.SetBool(
                 WalkingBool,
@@ -1206,14 +1582,14 @@ public class CombatManager : MonoBehaviour
         }
 
         // ====================================
-        // RANDOM DEATH INDEX
+        // DEATH INDEX
         // ====================================
 
         if (HasParameter(
-            loserAnimator,
-            DeathIndexInt,
-            AnimatorControllerParameterType.Int
-        ))
+                loserAnimator,
+                DeathIndexInt,
+                AnimatorControllerParameterType.Int
+            ))
         {
             int randomDeathIndex =
                 Random.Range(
@@ -1237,10 +1613,10 @@ public class CombatManager : MonoBehaviour
         // ====================================
 
         if (HasParameter(
-            loserAnimator,
-            DeathTrigger,
-            AnimatorControllerParameterType.Trigger
-        ))
+                loserAnimator,
+                DeathTrigger,
+                AnimatorControllerParameterType.Trigger
+            ))
         {
             SafeResetTrigger(
                 loserAnimator,
@@ -1272,8 +1648,14 @@ public class CombatManager : MonoBehaviour
             yield break;
         }
 
+        StopPlayerMovementOnly();
+
         if (playerClickController != null)
         {
+            playerClickController.SetSelected(
+                false
+            );
+
             playerClickController.enabled =
                 false;
         }
@@ -1286,6 +1668,11 @@ public class CombatManager : MonoBehaviour
         SafeResetTrigger(
             playerAnimator,
             BiteTrigger
+        );
+
+        SafeResetTrigger(
+            playerAnimator,
+            AimTrigger
         );
 
         SafeResetTrigger(
@@ -1304,10 +1691,10 @@ public class CombatManager : MonoBehaviour
         );
 
         if (HasParameter(
-            playerAnimator,
-            WalkingBool,
-            AnimatorControllerParameterType.Bool
-        ))
+                playerAnimator,
+                WalkingBool,
+                AnimatorControllerParameterType.Bool
+            ))
         {
             playerAnimator.SetBool(
                 WalkingBool,
@@ -1316,10 +1703,10 @@ public class CombatManager : MonoBehaviour
         }
 
         if (HasParameter(
-            playerAnimator,
-            TauntTrigger,
-            AnimatorControllerParameterType.Trigger
-        ))
+                playerAnimator,
+                TauntTrigger,
+                AnimatorControllerParameterType.Trigger
+            ))
         {
             playerAnimator.SetTrigger(
                 TauntTrigger
@@ -1336,10 +1723,10 @@ public class CombatManager : MonoBehaviour
         );
 
         if (HasParameter(
-            playerAnimator,
-            WalkingBool,
-            AnimatorControllerParameterType.Bool
-        ))
+                playerAnimator,
+                WalkingBool,
+                AnimatorControllerParameterType.Bool
+            ))
         {
             playerAnimator.SetBool(
                 WalkingBool,
@@ -1372,6 +1759,11 @@ public class CombatManager : MonoBehaviour
 
         SafeResetTrigger(
             monsterAnimator,
+            AimTrigger
+        );
+
+        SafeResetTrigger(
+            monsterAnimator,
             ShootingTrigger
         );
 
@@ -1386,10 +1778,10 @@ public class CombatManager : MonoBehaviour
         );
 
         if (HasParameter(
-            monsterAnimator,
-            WalkingBool,
-            AnimatorControllerParameterType.Bool
-        ))
+                monsterAnimator,
+                WalkingBool,
+                AnimatorControllerParameterType.Bool
+            ))
         {
             monsterAnimator.SetBool(
                 WalkingBool,
@@ -1398,10 +1790,10 @@ public class CombatManager : MonoBehaviour
         }
 
         if (HasParameter(
-            monsterAnimator,
-            TauntTrigger,
-            AnimatorControllerParameterType.Trigger
-        ))
+                monsterAnimator,
+                TauntTrigger,
+                AnimatorControllerParameterType.Trigger
+            ))
         {
             monsterAnimator.SetTrigger(
                 TauntTrigger
@@ -1418,10 +1810,10 @@ public class CombatManager : MonoBehaviour
         );
 
         if (HasParameter(
-            monsterAnimator,
-            WalkingBool,
-            AnimatorControllerParameterType.Bool
-        ))
+                monsterAnimator,
+                WalkingBool,
+                AnimatorControllerParameterType.Bool
+            ))
         {
             monsterAnimator.SetBool(
                 WalkingBool,
@@ -1431,7 +1823,7 @@ public class CombatManager : MonoBehaviour
     }
 
     // ====================================
-    // REGISTER
+    // REGISTER COMBATANTS
     // ====================================
 
     public void RegisterCombatants(
@@ -1464,6 +1856,21 @@ public class CombatManager : MonoBehaviour
             );
 
         FindPlayerClickController();
+        FindPlayerController();
+
+        if (player != null)
+        {
+            playerCombatHeight =
+                player.transform.position.y;
+        }
+
+        DisableRootMotion(
+            playerAnimator
+        );
+
+        DisableRootMotion(
+            monsterAnimator
+        );
 
         nextRoundTime =
             Time.time + 0.5f;
