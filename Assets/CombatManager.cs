@@ -147,10 +147,6 @@ public class CombatManager : MonoBehaviour
     // FIND COMBATANTS
     // ====================================
 
-    // ====================================
-// FIND COMBATANTS
-// ====================================
-
     private void FindCombatants()
     {
         Health[] healthObjects =
@@ -183,6 +179,7 @@ public class CombatManager : MonoBehaviour
             break;
         }
     }
+
     private void FindPlayerClickController()
     {
         if (player == null)
@@ -202,6 +199,33 @@ public class CombatManager : MonoBehaviour
             playerClickController =
                 player.GetComponentInChildren<PlayerClickController>();
         }
+    }
+
+    // ====================================
+    // FIND PLAYER CONTROLLER
+    // ====================================
+
+    private PlayerController FindPlayerController()
+    {
+        if (player == null)
+            return null;
+
+        PlayerController playerController =
+            player.GetComponent<PlayerController>();
+
+        if (playerController == null)
+        {
+            playerController =
+                player.GetComponentInParent<PlayerController>();
+        }
+
+        if (playerController == null)
+        {
+            playerController =
+                player.GetComponentInChildren<PlayerController>();
+        }
+
+        return playerController;
     }
 
     // ====================================
@@ -955,6 +979,19 @@ public class CombatManager : MonoBehaviour
                 : "[COMBAT] MONSTER WINS!"
         );
 
+        // ====================================
+        // PLAYER DEATH
+        // ====================================
+
+        if (loser == player)
+        {
+            StopPlayerMovement();
+        }
+
+        // ====================================
+        // MONSTER DEATH
+        // ====================================
+
         if (loser == monster)
         {
             SimpleAgent agent =
@@ -985,6 +1022,44 @@ public class CombatManager : MonoBehaviour
         {
             StartCoroutine(
                 MonsterVictory()
+            );
+        }
+    }
+
+    // ====================================
+    // STOP PLAYER MOVEMENT
+    // ====================================
+
+    private void StopPlayerMovement()
+    {
+        PlayerController playerController =
+            FindPlayerController();
+
+        if (playerController != null)
+        {
+            playerController.SetDead();
+
+            Debug.Log(
+                "[COMBAT] PlayerController marked as dead. " +
+                "Movement stopped."
+            );
+        }
+        else
+        {
+            Debug.LogWarning(
+                "[COMBAT] PlayerController not found. " +
+                "Unable to stop player movement."
+            );
+        }
+
+        FindPlayerClickController();
+
+        if (playerClickController != null)
+        {
+            playerClickController.enabled = false;
+
+            Debug.Log(
+                "[COMBAT] PlayerClickController disabled."
             );
         }
     }
@@ -1059,6 +1134,15 @@ public class CombatManager : MonoBehaviour
     {
         if (loser == null)
             return;
+
+        // ====================================
+        // STOP PLAYER MOVEMENT IMMEDIATELY
+        // ====================================
+
+        if (loser == player)
+        {
+            StopPlayerMovement();
+        }
 
         Animator loserAnimator =
             loser == player
@@ -1173,21 +1257,6 @@ public class CombatManager : MonoBehaviour
                 $"[COMBAT] {loser.name} Animator " +
                 $"has no 'Death' trigger."
             );
-        }
-
-        // ====================================
-        // DISABLE PLAYER CONTROL
-        // ====================================
-
-        if (loser == player)
-        {
-            FindPlayerClickController();
-
-            if (playerClickController != null)
-            {
-                playerClickController.enabled =
-                    false;
-            }
         }
     }
 

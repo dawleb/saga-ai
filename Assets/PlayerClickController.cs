@@ -44,12 +44,14 @@ public class PlayerClickController : MonoBehaviour
 
         if (playerController == null)
         {
-            playerController = GetComponent<PlayerController>();
+            playerController =
+                GetComponent<PlayerController>();
         }
 
         if (animator == null)
         {
-            animator = GetComponentInChildren<Animator>();
+            animator =
+                GetComponentInChildren<Animator>();
         }
 
         SetSelected(false);
@@ -61,9 +63,14 @@ public class PlayerClickController : MonoBehaviour
         UpdateAnimation();
     }
 
+    // ====================================
+    // UPDATE ANIMATION
+    // ====================================
+
     private void UpdateAnimation()
     {
-        if (animator != null && playerController != null)
+        if (animator != null &&
+            playerController != null)
         {
             animator.SetBool(
                 "IsWalking",
@@ -72,18 +79,35 @@ public class PlayerClickController : MonoBehaviour
         }
     }
 
+    // ====================================
+    // SET SELECTED
+    // ====================================
+
     public void SetSelected(bool selected)
     {
+        // Dead player can never be selected.
+        if (playerController != null &&
+            playerController.IsDead)
+        {
+            selected = false;
+        }
+
         isSelected = selected;
 
         if (selectionSquare != null)
         {
-            selectionSquare.SetActive(selected);
+            selectionSquare.SetActive(
+                selected
+            );
 
             if (selected)
             {
                 selectionSquare.transform.localPosition =
-                    new Vector3(0f, 0.03f, 0f);
+                    new Vector3(
+                        0f,
+                        0.03f,
+                        0f
+                    );
             }
         }
 
@@ -91,10 +115,7 @@ public class PlayerClickController : MonoBehaviour
         {
             HideEnemySelection();
 
-            if (selectionRing != null)
-            {
-                selectionRing.SetActive(false);
-            }
+            HideSelectionRing();
 
             if (playerController != null)
             {
@@ -109,11 +130,67 @@ public class PlayerClickController : MonoBehaviour
         );
     }
 
-    // Shows the enemy marker only for a right-click movement command.
-    private void ShowEnemySelection(Health enemy)
+    // ====================================
+    // HIDE SELECTION RING
+    // ====================================
+
+    public void HideSelectionRing()
+    {
+        if (selectionRing != null)
+        {
+            selectionRing.SetActive(false);
+        }
+    }
+
+    // ====================================
+    // PLAYER DIED
+    // ====================================
+
+    public void SetDead()
+    {
+        // Remove player selection immediately.
+        isSelected = false;
+
+        // Hide player selection square.
+        if (selectionSquare != null)
+        {
+            selectionSquare.SetActive(false);
+        }
+
+        // Hide movement ring immediately.
+        HideSelectionRing();
+
+        // Remove enemy target marker.
+        HideEnemySelection();
+
+        // Stop movement.
+        if (playerController != null)
+        {
+            playerController.SetDead();
+        }
+
+        Debug.Log(
+            "[SELECTION] Player died. " +
+            "Selection and movement ring removed."
+        );
+    }
+
+    // ====================================
+    // SHOW ENEMY SELECTION
+    // ====================================
+
+    private void ShowEnemySelection(
+        Health enemy
+    )
     {
         if (enemy == null)
         {
+            return;
+        }
+
+        if (enemy.IsDead())
+        {
+            HideEnemySelection();
             return;
         }
 
@@ -136,13 +213,20 @@ public class PlayerClickController : MonoBehaviour
             return;
         }
 
-        selectedEnemyMarker = marker.gameObject;
+        selectedEnemyMarker =
+            marker.gameObject;
+
         selectedEnemyMarker.SetActive(true);
     }
+
+    // ====================================
+    // HIDE ENEMY SELECTION
+    // ====================================
 
     private void HideEnemySelection()
     {
         HideEnemySelectionVisualOnly();
+
         selectedEnemy = null;
     }
 
@@ -157,9 +241,14 @@ public class PlayerClickController : MonoBehaviour
         selectedEnemyMarker = null;
     }
 
+    // ====================================
+    // FIND CHILD
+    // ====================================
+
     private Transform FindChildByName(
         Transform parent,
-        string childName)
+        string childName
+    )
     {
         if (parent == null)
         {
@@ -171,9 +260,12 @@ public class PlayerClickController : MonoBehaviour
             return parent;
         }
 
-        for (int i = 0; i < parent.childCount; i++)
+        for (int i = 0;
+             i < parent.childCount;
+             i++)
         {
-            Transform child = parent.GetChild(i);
+            Transform child =
+                parent.GetChild(i);
 
             Transform result =
                 FindChildByName(
@@ -190,11 +282,22 @@ public class PlayerClickController : MonoBehaviour
         return null;
     }
 
-    // Right-click on the ground moves the unit to the selected position.
-    public void MoveToGround(Vector3 targetPosition)
+    // ====================================
+    // MOVE TO GROUND
+    // ====================================
+
+    public void MoveToGround(
+        Vector3 targetPosition
+    )
     {
-        if (!isSelected ||
-            playerController == null)
+        if (playerController == null ||
+            playerController.IsDead)
+        {
+            HideSelectionRing();
+            return;
+        }
+
+        if (!isSelected)
         {
             return;
         }
@@ -207,6 +310,7 @@ public class PlayerClickController : MonoBehaviour
         if (selectionRing != null)
         {
             selectionRing.SetActive(true);
+
             selectionRing.transform.position =
                 targetPosition;
         }
@@ -220,18 +324,37 @@ public class PlayerClickController : MonoBehaviour
         );
     }
 
-    // Right-click on an enemy moves the unit toward the enemy.
-    // This is the only command that shows the enemy marker.
-    public void MoveToEnemy(Health enemy)
+    // ====================================
+    // MOVE TO ENEMY
+    // ====================================
+
+    public void MoveToEnemy(
+        Health enemy
+    )
     {
+        if (playerController == null ||
+            playerController.IsDead)
+        {
+            HideSelectionRing();
+            return;
+        }
+
         if (!isSelected ||
-            playerController == null ||
             enemy == null)
         {
             return;
         }
 
-        ShowEnemySelection(enemy);
+        if (enemy.IsDead())
+        {
+            HideEnemySelection();
+            HideSelectionRing();
+            return;
+        }
+
+        ShowEnemySelection(
+            enemy
+        );
 
         Collider enemyCollider =
             enemy.GetComponentInChildren<Collider>();
@@ -273,6 +396,7 @@ public class PlayerClickController : MonoBehaviour
         if (selectionRing != null)
         {
             selectionRing.SetActive(true);
+
             selectionRing.transform.position =
                 targetPosition;
         }
@@ -286,20 +410,39 @@ public class PlayerClickController : MonoBehaviour
         );
     }
 
-    // Left-clicking an enemy selects it as the attack target.
-    // The unit never moves because of this command.
-    public void AttackEnemyAtRange(Health enemy)
+    // ====================================
+    // ATTACK ENEMY
+    // ====================================
+
+    public void AttackEnemyAtRange(
+        Health enemy
+    )
     {
+        if (playerController == null ||
+            playerController.IsDead)
+        {
+            HideSelectionRing();
+            return;
+        }
+
         if (!isSelected ||
             enemy == null)
         {
             return;
         }
 
+        if (enemy.IsDead())
+        {
+            HideEnemySelection();
+            HideSelectionRing();
+            return;
+        }
+
         selectedEnemy = enemy;
 
-        // Show the enemy marker for the current attack target.
-        ShowEnemySelection(enemy);
+        ShowEnemySelection(
+            enemy
+        );
 
         Vector3 direction =
             enemy.transform.position -
@@ -310,8 +453,6 @@ public class PlayerClickController : MonoBehaviour
         float distance =
             direction.magnitude;
 
-        // Enemy is outside the weapon range.
-        // Keep the target selected, but do not move.
         if (distance > attackRange)
         {
             Debug.Log(
@@ -323,7 +464,6 @@ public class PlayerClickController : MonoBehaviour
             return;
         }
 
-        // Face the enemy.
         if (direction.sqrMagnitude > 0.01f)
         {
             transform.rotation =
@@ -332,20 +472,37 @@ public class PlayerClickController : MonoBehaviour
                 );
         }
 
-        // The movement destination ring is not needed for an attack.
-        if (selectionRing != null)
-        {
-            selectionRing.SetActive(false);
-        }
+        HideSelectionRing();
 
-        // Fire without starting movement.
-        ShootAtEnemy(enemy);
+        ShootAtEnemy(
+            enemy
+        );
     }
 
-    private void ShootAtEnemy(Health enemy)
+    // ====================================
+    // SHOOT
+    // ====================================
+
+    private void ShootAtEnemy(
+        Health enemy
+    )
     {
         if (enemy == null)
         {
+            return;
+        }
+
+        if (enemy.IsDead())
+        {
+            HideEnemySelection();
+            HideSelectionRing();
+            return;
+        }
+
+        if (playerController != null &&
+            playerController.IsDead)
+        {
+            HideSelectionRing();
             return;
         }
 

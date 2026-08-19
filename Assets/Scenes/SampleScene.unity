@@ -447,7 +447,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1a22dc16f206cfb47a34a621d9e07531, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CombatController
-  maxHealth: 80
+  maxHealth: 10
+  deathAnimationCount: 2
 --- !u!54 &466695713
 Rigidbody:
   m_ObjectHideFlags: 0
@@ -963,6 +964,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CombatController
   maxHealth: 100
+  deathAnimationCount: 2
 --- !u!114 &1069619712
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1330,6 +1332,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CombatController
   maxHealth: 100
+  deathAnimationCount: 2
 --- !u!136 &1208470508
 CapsuleCollider:
   m_ObjectHideFlags: 0
