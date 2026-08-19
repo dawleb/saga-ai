@@ -19,7 +19,20 @@ public class CombatManager : MonoBehaviour
     public float damageMax = 15f;
 
     [Header("Melee Range")]
-    public float attackRange = 1.1f;
+    [Tooltip("Distance at which melee combat is allowed to start.")]
+    public float attackRange = 1.4f;
+
+    [Tooltip("Actual distance between Soldier and Monster during melee combat.")]
+    public float meleeCombatDistance = 0.85f;
+
+    [Tooltip("How quickly the Soldier moves into melee position.")]
+    public float meleeApproachSpeed = 8f;
+
+    [Tooltip("How quickly the Monster moves into melee position.")]
+    public float monsterMeleeApproachSpeed = 8f;
+
+    [Tooltip("If enabled, both characters are positioned closer before attacking.")]
+    public bool forceMeleeDistance = true;
 
     [Header("Ranged Combat")]
     public float shootingRange = 8f;
@@ -44,6 +57,19 @@ public class CombatManager : MonoBehaviour
 
     [Tooltip("Keep correcting Soldier rotation while aiming/shooting.")]
     public bool continuouslyCorrectAim = true;
+
+    [Header("Shooting Line of Sight")]
+    [Tooltip("If enabled, obstacles can block ranged attacks.")]
+    public bool requireLineOfSight = true;
+
+    [Tooltip("Layers that can block ranged attacks. Add walls, rocks, buildings, crates, etc.")]
+    public LayerMask shootingObstacleLayers;
+
+    [Tooltip("Small offset used when starting the Line of Sight ray from the Soldier.")]
+    public float lineOfSightStartOffset = 0.05f;
+
+    [Tooltip("If enabled, a debug ray will be drawn in the Scene view while checking Line of Sight.")]
+    public bool debugLineOfSight = false;
 
     [Header("Combat Rotation")]
     [Tooltip("How quickly characters rotate during melee.")]
@@ -194,13 +220,12 @@ public class CombatManager : MonoBehaviour
             monster.IsDead())
             return;
 
-        // Prevent Soldier from sliding vertically.
         KeepPlayerAtCombatHeight();
 
         float distance =
-            Vector3.Distance(
-                player.transform.position,
-                monster.transform.position
+            GetHorizontalDistance(
+                player.transform,
+                monster.transform
             );
 
         // ====================================
@@ -209,6 +234,13 @@ public class CombatManager : MonoBehaviour
 
         if (distance <= attackRange)
         {
+            // Stop Soldier immediately.
+            StopPlayerMovementOnly();
+
+            // Bring both combatants closer together.
+            MaintainMeleeDistance();
+
+            // Face each other.
             RotateTowardsOpponent(
                 player.transform,
                 monster.transform
@@ -218,6 +250,13 @@ public class CombatManager : MonoBehaviour
                 monster.transform,
                 player.transform
             );
+
+            // Recalculate distance after positioning.
+            distance =
+                GetHorizontalDistance(
+                    player.transform,
+                    monster.transform
+                );
 
             HandleMeleeCombat(
                 distance
@@ -245,9 +284,7 @@ public class CombatManager : MonoBehaviour
     private void FindCombatants()
     {
         Health[] healthObjects =
-            FindObjectsByType<Health>(
-                FindObjectsSortMode.None
-            );
+            FindObjectsByType<Health>();
 
         foreach (Health health in healthObjects)
         {
@@ -407,6 +444,149 @@ public class CombatManager : MonoBehaviour
     }
 
     // ====================================
+    // HORIZONTAL DISTANCE
+    // ====================================
+
+    private float GetHorizontalDistance(
+        Transform a,
+        Transform b
+    )
+    {
+        if (a == null ||
+            b == null)
+        {
+            return Mathf.Infinity;
+        }
+
+        Vector3 aPosition =
+            a.position;
+
+        Vector3 bPosition =
+            b.position;
+
+        aPosition.y = 0f;
+        bPosition.y = 0f;
+
+        return Vector3.Distance(
+            aPosition,
+            bPosition
+        );
+    }
+
+    // ====================================
+    // MAINTAIN MELEE DISTANCE
+    // ====================================
+
+    private void MaintainMeleeDistance()
+    {
+        if (!forceMeleeDistance)
+            return;
+
+        if (player == null ||
+            monster == null)
+            return;
+
+        if (player.IsDead() ||
+            monster.IsDead())
+            return;
+
+        float currentDistance =
+            GetHorizontalDistance(
+                player.transform,
+                monster.transform
+            );
+
+        if (currentDistance <= meleeCombatDistance)
+            return;
+
+        Vector3 direction =
+            monster.transform.position -
+            player.transform.position;
+
+        direction.y = 0f;
+
+        if (direction.sqrMagnitude < 0.0001f)
+            return;
+
+        direction.Normalize();
+
+        float distanceToMove =
+            currentDistance -
+            meleeCombatDistance;
+
+        // ====================================
+        // MOVE PLAYER TOWARD MONSTER
+        // ====================================
+
+        if (playerController != null)
+        {
+            playerController.StopMovement();
+        }
+
+        float playerMove =
+            Mathf.Min(
+                distanceToMove,
+                meleeApproachSpeed *
+                Time.deltaTime
+            );
+
+        Vector3 playerPosition =
+            player.transform.position;
+
+        playerPosition +=
+            direction *
+            playerMove;
+
+        playerPosition.y =
+            playerCombatHeight;
+
+        player.transform.position =
+            playerPosition;
+
+        // ====================================
+        // MOVE MONSTER TOWARD PLAYER
+        // ====================================
+
+        float remainingDistance =
+            GetHorizontalDistance(
+                player.transform,
+                monster.transform
+            );
+
+        if (remainingDistance <= meleeCombatDistance)
+            return;
+
+        float monsterMove =
+            Mathf.Min(
+                remainingDistance -
+                meleeCombatDistance,
+                monsterMeleeApproachSpeed *
+                Time.deltaTime
+            );
+
+        Vector3 monsterDirection =
+            player.transform.position -
+            monster.transform.position;
+
+        monsterDirection.y = 0f;
+
+        if (monsterDirection.sqrMagnitude > 0.0001f)
+        {
+            monsterDirection.Normalize();
+
+            Vector3 monsterPosition =
+                monster.transform.position;
+
+            monsterPosition +=
+                monsterDirection *
+                monsterMove;
+
+            monster.transform.position =
+                monsterPosition;
+        }
+    }
+
+    // ====================================
     // ANIMATOR PARAMETER CHECK
     // ====================================
 
@@ -473,6 +653,140 @@ public class CombatManager : MonoBehaviour
     }
 
     // ====================================
+    // LINE OF SIGHT
+    // ====================================
+
+    private bool HasLineOfSightToMonster()
+    {
+        if (!requireLineOfSight)
+            return true;
+
+        if (player == null ||
+            monster == null)
+        {
+            return false;
+        }
+
+        Vector3 origin =
+            GetShootingOrigin();
+
+        Vector3 target =
+            GetAimPosition(
+                monster
+            );
+
+        Vector3 direction =
+            target -
+            origin;
+
+        float distance =
+            direction.magnitude;
+
+        if (distance <= 0.001f)
+            return true;
+
+        direction.Normalize();
+
+        origin +=
+            direction *
+            lineOfSightStartOffset;
+
+        distance -=
+            lineOfSightStartOffset;
+
+        if (distance <= 0f)
+            return true;
+
+        RaycastHit[] hits =
+            Physics.RaycastAll(
+                origin,
+                direction,
+                distance,
+                shootingObstacleLayers,
+                QueryTriggerInteraction.Ignore
+            );
+
+        if (debugLineOfSight)
+        {
+            Debug.DrawRay(
+                origin,
+                direction * distance,
+                hits.Length > 0
+                    ? Color.red
+                    : Color.green
+            );
+        }
+
+        if (hits.Length == 0)
+        {
+            return true;
+        }
+
+        // Sort hits so the closest object is checked first.
+        System.Array.Sort(
+            hits,
+            (a, b) =>
+                a.distance.CompareTo(
+                    b.distance
+                )
+        );
+
+        foreach (RaycastHit hit in hits)
+        {
+            if (hit.collider == null)
+                continue;
+
+            // Ignore the Monster itself.
+            if (hit.collider.transform.IsChildOf(
+                    monster.transform
+                ) ||
+                monster.transform.IsChildOf(
+                    hit.collider.transform
+                ))
+            {
+                continue;
+            }
+
+            // Any other object on the obstacle layers blocks the shot.
+            return false;
+        }
+
+        return true;
+    }
+
+    // ====================================
+    // SHOOTING ORIGIN
+    // ====================================
+
+    private Vector3 GetShootingOrigin()
+    {
+        if (player == null)
+            return Vector3.zero;
+
+        Collider playerCollider =
+            player.GetComponentInChildren<Collider>();
+
+        if (playerCollider != null)
+        {
+            Bounds bounds =
+                playerCollider.bounds;
+
+            return new Vector3(
+                bounds.center.x,
+                bounds.center.y,
+                bounds.center.z
+            );
+        }
+
+        Vector3 position =
+            player.transform.position;
+
+        position.y += 1f;
+
+        return position;
+    }
+
+    // ====================================
     // MELEE
     // ====================================
 
@@ -486,7 +800,7 @@ public class CombatManager : MonoBehaviour
         if (roundInProgress)
             return;
 
-        if (distance > attackRange)
+        if (distance > meleeCombatDistance + 0.1f)
             return;
 
         if (Time.time < nextRoundTime)
@@ -500,6 +814,19 @@ public class CombatManager : MonoBehaviour
     private IEnumerator ResolveMeleeRound()
     {
         roundInProgress = true;
+
+        // Make sure they are close before the first attack.
+        MaintainMeleeDistance();
+
+        RotateTowardsOpponent(
+            player.transform,
+            monster.transform
+        );
+
+        RotateTowardsOpponent(
+            monster.transform,
+            player.transform
+        );
 
         yield return StartCoroutine(
             PerformMeleeAttack(
@@ -515,6 +842,9 @@ public class CombatManager : MonoBehaviour
             roundInProgress = false;
             yield break;
         }
+
+        // Make sure they remain close after the Player attack.
+        MaintainMeleeDistance();
 
         yield return StartCoroutine(
             PerformMeleeAttack(
@@ -563,6 +893,9 @@ public class CombatManager : MonoBehaviour
         {
             yield break;
         }
+
+        // Keep combatants close.
+        MaintainMeleeDistance();
 
         RotateTowardsOpponent(
             attacker.transform,
@@ -726,8 +1059,14 @@ public class CombatManager : MonoBehaviour
         // Soldier must be completely stopped.
         StopPlayerMovementOnly();
 
-        // Keep facing target.
+        // Keep facing the target.
         RotateSoldierTowardsTarget();
+
+        // Do not shoot through obstacles.
+        if (!HasLineOfSightToMonster())
+        {
+            return;
+        }
 
         if (roundInProgress)
             return;
@@ -763,9 +1102,9 @@ public class CombatManager : MonoBehaviour
         }
 
         float distance =
-            Vector3.Distance(
-                player.transform.position,
-                monster.transform.position
+            GetHorizontalDistance(
+                player.transform,
+                monster.transform
             );
 
         if (distance > shootingRange)
@@ -781,7 +1120,22 @@ public class CombatManager : MonoBehaviour
         StopPlayerMovementOnly();
 
         // ====================================
-        // STEP 2 - AIM
+        // STEP 2 - CHECK LINE OF SIGHT
+        // ====================================
+
+        if (!HasLineOfSightToMonster())
+        {
+            roundInProgress = false;
+
+            Debug.Log(
+                "[COMBAT] Shooting blocked by an obstacle."
+            );
+
+            yield break;
+        }
+
+        // ====================================
+        // STEP 3 - AIM
         // ====================================
 
         RotateSoldierTowardsTarget();
@@ -813,7 +1167,7 @@ public class CombatManager : MonoBehaviour
         }
 
         // ====================================
-        // STEP 3 - AIM TIME
+        // STEP 4 - AIM TIME
         // ====================================
 
         float aimTimer = 0f;
@@ -841,9 +1195,9 @@ public class CombatManager : MonoBehaviour
             }
 
             distance =
-                Vector3.Distance(
-                    player.transform.position,
-                    monster.transform.position
+                GetHorizontalDistance(
+                    player.transform,
+                    monster.transform
                 );
 
             if (distance > shootingRange)
@@ -852,10 +1206,22 @@ public class CombatManager : MonoBehaviour
                 yield break;
             }
 
+            // Recheck Line of Sight while aiming.
+            if (!HasLineOfSightToMonster())
+            {
+                roundInProgress = false;
+
+                Debug.Log(
+                    "[COMBAT] Shooting cancelled because an obstacle blocked Line of Sight."
+                );
+
+                yield break;
+            }
+
             // Keep Soldier perfectly aimed.
             RotateSoldierTowardsTarget();
 
-            // Keep him at the correct Y.
+            // Keep Soldier at the correct Y position.
             KeepPlayerAtCombatHeight();
 
             aimTimer +=
@@ -865,13 +1231,28 @@ public class CombatManager : MonoBehaviour
         }
 
         // ====================================
-        // STEP 4 - FINAL AIM
+        // STEP 5 - FINAL AIM
         // ====================================
 
         RotateSoldierTowardsTarget();
 
         // ====================================
-        // STEP 5 - SHOOT
+        // STEP 6 - FINAL LINE OF SIGHT CHECK
+        // ====================================
+
+        if (!HasLineOfSightToMonster())
+        {
+            roundInProgress = false;
+
+            Debug.Log(
+                "[COMBAT] Shot cancelled because an obstacle blocked Line of Sight."
+            );
+
+            yield break;
+        }
+
+        // ====================================
+        // STEP 7 - SHOOT
         // ====================================
 
         if (playerAnimator != null &&
@@ -896,7 +1277,7 @@ public class CombatManager : MonoBehaviour
         }
 
         // ====================================
-        // STEP 6 - SHOOT DELAY
+        // STEP 8 - SHOOT DELAY
         // ====================================
 
         float elapsed = 0f;
@@ -928,6 +1309,18 @@ public class CombatManager : MonoBehaviour
                 RotateSoldierTowardsTarget();
             }
 
+            // Keep checking the obstacle during the shot delay.
+            if (!HasLineOfSightToMonster())
+            {
+                roundInProgress = false;
+
+                Debug.Log(
+                    "[COMBAT] Shot cancelled because an obstacle appeared."
+                );
+
+                yield break;
+            }
+
             KeepPlayerAtCombatHeight();
 
             elapsed +=
@@ -954,14 +1347,26 @@ public class CombatManager : MonoBehaviour
         }
 
         distance =
-            Vector3.Distance(
-                player.transform.position,
-                monster.transform.position
+            GetHorizontalDistance(
+                player.transform,
+                monster.transform
             );
 
         if (distance > shootingRange)
         {
             roundInProgress = false;
+            yield break;
+        }
+
+        // Final Line of Sight validation before damage.
+        if (!HasLineOfSightToMonster())
+        {
+            roundInProgress = false;
+
+            Debug.Log(
+                "[COMBAT] Shot did not hit because Line of Sight was blocked."
+            );
+
             yield break;
         }
 
@@ -1087,7 +1492,7 @@ public class CombatManager : MonoBehaviour
             Bounds bounds =
                 targetCollider.bounds;
 
-            // Aim around upper-middle of enemy.
+            // Aim around the upper-middle of the enemy.
             return new Vector3(
                 bounds.center.x,
                 bounds.min.y +
