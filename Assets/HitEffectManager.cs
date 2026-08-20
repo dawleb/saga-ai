@@ -9,7 +9,8 @@ public class HitEffectManager : MonoBehaviour
     // =========================================================
 
     [Header("Blood Hit")]
-    [Tooltip("Prefab BloodSplat / efekt krwi na trafionym przeciwniku.")]
+
+    [Tooltip("BloodFX prefab used for the hit burst.")]
     public GameObject bloodHitEffect;
 
     [Min(0f)]
@@ -18,88 +19,123 @@ public class HitEffectManager : MonoBehaviour
     public bool rotateBloodToAttacker = false;
 
     public float bloodVerticalOffset = 0.30f;
+
     public float bloodForwardOffset = 0.03f;
 
+    [Tooltip("Force all hit particle systems to play immediately.")]
     public bool forcePlayParticleSystems = true;
+
+    [Tooltip("Clear particles already stored in the hit prefab.")]
     public bool clearParticlesBeforePlay = true;
 
+    [Tooltip("Force the base particle color to white.")]
+    public bool forceHitParticleWhite = true;
+
+
     // =========================================================
-    // BLOOD GROUND
+    // GROUND BLOOD
     // =========================================================
 
-    [Header("Blood Ground")]
-    [Tooltip(
-        "TU PRZYPISZ PRAWDZIWY BloodSplat.prefab z BloodFX/Prefabs. " +
-        "Nie Decal Projector."
-    )]
+    [Header("Ground Blood")]
+
+    [Tooltip("BloodFX BloodSplat prefab used for the ground stain.")]
     public GameObject bloodGroundEffect;
 
     [Min(0f)]
-    [Tooltip(
-        "0 = plama nie jest niszczona przez ten skrypt. " +
-        "Dla prawdziwego BloodSplat prefab jest to zalecane."
-    )]
+    [Tooltip("0 = never destroy the ground stain.")]
     public float bloodGroundLifetime = 0f;
 
-    [Tooltip(
-        "Jak długo cząstki BloodSplat mają być widoczne na ziemi."
-    )]
     [Min(0.1f)]
+    [Tooltip("How long the ground particle remains alive.")]
     public float groundParticleLifetime = 30f;
 
-    [Tooltip(
-        "Skala plamy na ziemi."
-    )]
     [Min(0.01f)]
+    [Tooltip("World scale of the spawned BloodSplat.")]
     public float groundScale = 1.5f;
 
-    [Tooltip(
-        "Wymusza poziomy billboard, dzięki czemu BloodSplat leży na podłodze."
-    )]
+    [Tooltip("Force horizontal billboard rendering.")]
     public bool forceGroundHorizontalBillboard = true;
 
-    [Tooltip(
-        "Wyłącza prędkość cząstek dla wersji używanej jako plama na ziemi."
-    )]
+    [Tooltip("Prevent ground particles from moving.")]
     public bool freezeGroundParticles = true;
 
-    [Tooltip(
-        "Wymusza brak grawitacji dla plamy."
-    )]
+    [Tooltip("Disable gravity on ground particles.")]
     public bool disableGroundGravity = true;
 
-    [Tooltip(
-        "Jeżeli prefab ma istniejące cząstki, usuwa je i tworzy je ponownie."
-    )]
+    [Tooltip("Disable all original particle behaviour before emitting.")]
     public bool clearGroundParticlesBeforePlay = true;
 
-    [Tooltip(
-        "Losowo obraca plamę wokół normalnej podłoża."
-    )]
+    [Tooltip("Random rotation around the floor normal.")]
     public bool randomGroundRotation = true;
 
+    [Tooltip(
+        "Disable Size over Lifetime. " +
+        "This is important to prevent the stain from growing later."
+    )]
+    public bool freezeGroundParticleSize = true;
+
+    [Tooltip(
+        "Disable all particle modules that can create movement or delayed effects."
+    )]
+    public bool disableGroundParticleMotion = true;
+
+    [Tooltip(
+        "Disable sub emitters on the ground BloodSplat."
+    )]
+    public bool disableGroundSubEmitters = true;
+
+
     // =========================================================
-    // GROUND RAYCAST
+    // GROUND SEARCH
     // =========================================================
 
-    [Header("Ground Raycast")]
+    [Header("Ground Search")]
 
-    [Min(0f)]
-    public float groundRayStartHeight = 1.5f;
-
-    [Min(0f)]
-    public float groundOffset = 0.02f;
+    [Min(0.01f)]
+    [Tooltip("Small offset above the floor to prevent z-fighting.")]
+    public float groundOffset = 0.015f;
 
     [Min(0.1f)]
-    public float groundRayDistance = 50f;
+    [Tooltip("Height above the search point where the ray begins.")]
+    public float groundRayStartHeight = 1.0f;
 
+    [Min(1f)]
+    public float groundRayDistance = 100f;
+
+    [Tooltip("Layers used for ground raycasts.")]
     public LayerMask groundLayers = ~0;
 
+    [Tooltip("If selected layers fail, search all layers.")]
     public bool fallbackToAllLayers = true;
 
-    public bool useHitPointGroundRay = true;
+
+    // =========================================================
+    // MELEE GROUND SEARCH
+    // =========================================================
+
+    [Header("Melee Ground Search")]
+
+    [Tooltip(
+        "Use the bottom of the victim bounds as the first ground search."
+    )]
     public bool useVictimBottomRay = true;
+
+    [Tooltip(
+        "Use the center of the victim as a secondary search."
+    )]
     public bool useVictimCenterRay = true;
+
+    [Tooltip(
+        "Search several positions around the victim."
+    )]
+    public bool useMultiPointGroundSearch = true;
+
+    [Min(0.05f)]
+    public float groundSearchRadius = 0.35f;
+
+    [Min(1)]
+    public int groundSearchPoints = 8;
+
 
     // =========================================================
     // FLOOR FILTER
@@ -108,9 +144,16 @@ public class HitEffectManager : MonoBehaviour
     [Header("Floor Filter")]
 
     [Range(0f, 1f)]
-    public float minimumFloorNormal = 0.7f;
+    [Tooltip(
+        "Minimum dot product between floor normal and Vector3.up."
+    )]
+    public float minimumFloorNormal = 0.65f;
 
+    [Tooltip(
+        "Reject walls and steep surfaces."
+    )]
     public bool onlyHorizontalSurfaces = true;
+
 
     // =========================================================
     // HIT POINT
@@ -118,14 +161,24 @@ public class HitEffectManager : MonoBehaviour
 
     [Header("Hit Point")]
 
+    [Tooltip(
+        "Vertical offset applied to the visual hit burst."
+    )]
     public float hitHeightOffset = 0.25f;
 
+    [Tooltip(
+        "Fallback height if no collider can be found."
+    )]
     public float fallbackHeight = 1.0f;
 
+    [Tooltip(
+        "Try a physical ray from attacker to victim."
+    )]
     public bool useRaycastForMeshColliders = true;
 
     [Min(0.1f)]
     public float victimRaycastDistance = 50f;
+
 
     // =========================================================
     // DEBUG
@@ -138,6 +191,7 @@ public class HitEffectManager : MonoBehaviour
     public bool debugGroundRay = true;
 
     public bool debugLogs = true;
+
 
     // =========================================================
     // UNITY
@@ -154,8 +208,107 @@ public class HitEffectManager : MonoBehaviour
         Instance = this;
     }
 
+
     // =========================================================
-    // PUBLIC
+    // MAIN PUBLIC ENTRY POINT
+    //
+    // IMPORTANT:
+    //
+    // Other scripts should call:
+    //
+    // HitEffectManager.Instance.PlayHitEffects(
+    //     victim,
+    //     attacker
+    // );
+    //
+    // victim = Health
+    // attacker = Transform
+    // =========================================================
+
+    public void PlayHitEffects(
+        Health victim,
+        Transform attacker
+    )
+    {
+        if (victim == null)
+        {
+            if (debugLogs)
+            {
+                Debug.LogWarning(
+                    "[HIT FX] PlayHitEffects: victim is NULL."
+                );
+            }
+
+            return;
+        }
+
+        Transform victimTransform =
+            victim.transform;
+
+        Vector3 hitPosition =
+            GetHitPoint(
+                victim,
+                attacker
+            );
+
+        if (debugHitPoint)
+        {
+            Debug.DrawRay(
+                hitPosition,
+                Vector3.up * 0.5f,
+                Color.red,
+                3f
+            );
+        }
+
+        if (debugLogs)
+        {
+            Debug.Log(
+                "[HIT FX] DAMAGE FX\n" +
+                "Victim: " +
+                victim.name +
+                "\nHit position: " +
+                hitPosition
+            );
+        }
+
+        // -----------------------------------------------------
+        // HIT BURST
+        // -----------------------------------------------------
+
+        SpawnBloodHitEffect(
+            hitPosition,
+            attacker
+        );
+
+        // -----------------------------------------------------
+        // GROUND BLOOD
+        //
+        // This is executed in THIS SAME FRAME.
+        // No coroutine.
+        // No Invoke.
+        // No delay.
+        // -----------------------------------------------------
+
+        SpawnBloodGroundEffect(
+            hitPosition,
+            victimTransform
+        );
+    }
+
+
+    // =========================================================
+    // PUBLIC COMPATIBILITY METHOD
+    //
+    // Uses Transform intentionally.
+    //
+    // This avoids:
+    //
+    // CS1503:
+    // cannot convert from 'Health'
+    // to 'UnityEngine.Transform'
+    //
+    // when this method is called with victim.transform.
     // =========================================================
 
     public void PlayBloodHit(
@@ -175,8 +328,9 @@ public class HitEffectManager : MonoBehaviour
         );
     }
 
+
     // =========================================================
-    // BLOOD HIT
+    // BLOOD HIT BURST
     // =========================================================
 
     private void SpawnBloodHitEffect(
@@ -189,7 +343,7 @@ public class HitEffectManager : MonoBehaviour
             if (debugLogs)
             {
                 Debug.LogWarning(
-                    "[HIT FX] bloodHitEffect == NULL."
+                    "[HIT FX] bloodHitEffect is not assigned."
                 );
             }
 
@@ -200,6 +354,11 @@ public class HitEffectManager : MonoBehaviour
             hitPosition +
             Vector3.up *
             bloodVerticalOffset;
+
+
+        // -----------------------------------------------------
+        // FORWARD OFFSET
+        // -----------------------------------------------------
 
         if (attacker != null &&
             Mathf.Abs(bloodForwardOffset) > 0.0001f)
@@ -217,6 +376,11 @@ public class HitEffectManager : MonoBehaviour
                     bloodForwardOffset;
             }
         }
+
+
+        // -----------------------------------------------------
+        // ROTATION
+        // -----------------------------------------------------
 
         Quaternion rotation =
             Quaternion.identity;
@@ -240,6 +404,11 @@ public class HitEffectManager : MonoBehaviour
             }
         }
 
+
+        // -----------------------------------------------------
+        // INSTANTIATE
+        // -----------------------------------------------------
+
         GameObject effect =
             Instantiate(
                 bloodHitEffect,
@@ -249,21 +418,21 @@ public class HitEffectManager : MonoBehaviour
 
         if (effect == null)
         {
-            Debug.LogError(
-                "[HIT FX] Nie udało się utworzyć Blood HIT."
-            );
-
             return;
         }
 
         effect.SetActive(true);
 
-        EnableAllRenderers(effect);
 
-        PlayAllParticleSystems(
-            effect,
-            false
+        EnableAllRenderers(
+            effect
         );
+
+
+        ConfigureAndPlayHitParticles(
+            effect
+        );
+
 
         if (bloodHitLifetime > 0f)
         {
@@ -273,17 +442,19 @@ public class HitEffectManager : MonoBehaviour
             );
         }
 
+
         if (debugLogs)
         {
             Debug.Log(
-                "[HIT FX] Blood HIT spawned: " +
+                "[HIT FX] Blood hit spawned immediately at: " +
                 spawnPosition
             );
         }
     }
 
+
     // =========================================================
-    // BLOOD GROUND
+    // GROUND BLOOD
     // =========================================================
 
     private void SpawnBloodGroundEffect(
@@ -294,42 +465,37 @@ public class HitEffectManager : MonoBehaviour
         if (bloodGroundEffect == null)
         {
             Debug.LogError(
-                "[HIT FX] bloodGroundEffect == NULL. " +
-                "Przypisz tutaj BloodSplat.prefab."
+                "[HIT FX] bloodGroundEffect is NULL."
             );
 
             return;
         }
 
-        RaycastHit groundHit;
-
-        // -----------------------------------------------------
-        // 1. HIT POINT
-        // -----------------------------------------------------
-
-        if (useHitPointGroundRay)
+        if (victim == null)
         {
-            if (FindGround(
-                hitPosition,
-                victim,
-                out groundHit
-            ))
+            if (debugLogs)
             {
-                SpawnGroundBloodSplat(
-                    groundHit.point,
-                    groundHit.normal
+                Debug.LogWarning(
+                    "[HIT FX] Ground spawn cancelled: victim is NULL."
                 );
-
-                return;
             }
+
+            return;
         }
 
-        // -----------------------------------------------------
-        // 2. VICTIM BOTTOM
-        // -----------------------------------------------------
 
-        if (useVictimBottomRay &&
-            victim != null)
+        RaycastHit groundHit;
+
+
+        // =====================================================
+        // 1. BELOW FEET
+        //
+        // THIS IS THE MOST IMPORTANT SEARCH FOR MELEE.
+        //
+        // We do NOT use the chest/head hit as the first choice.
+        // =====================================================
+
+        if (useVictimBottomRay)
         {
             Vector3 bottom =
                 GetVictimBottomPoint(
@@ -351,15 +517,20 @@ public class HitEffectManager : MonoBehaviour
             }
         }
 
-        // -----------------------------------------------------
-        // 3. VICTIM CENTER
-        // -----------------------------------------------------
 
-        if (useVictimCenterRay &&
-            victim != null)
+        // =====================================================
+        // 2. VICTIM CENTER
+        // =====================================================
+
+        if (useVictimCenterRay)
         {
+            Vector3 center =
+                GetVictimCenterPoint(
+                    victim
+                );
+
             if (FindGround(
-                victim.position,
+                center,
                 victim,
                 out groundHit
             ))
@@ -373,10 +544,55 @@ public class HitEffectManager : MonoBehaviour
             }
         }
 
-        Debug.LogWarning(
-            "[HIT FX] Nie znaleziono podłoża dla BloodSplat."
-        );
+
+        // =====================================================
+        // 3. HIT POINT
+        // =====================================================
+
+        if (FindGround(
+            hitPosition,
+            victim,
+            out groundHit
+        ))
+        {
+            SpawnGroundBloodSplat(
+                groundHit.point,
+                groundHit.normal
+            );
+
+            return;
+        }
+
+
+        // =====================================================
+        // 4. MULTI POINT
+        // =====================================================
+
+        if (useMultiPointGroundSearch)
+        {
+            if (FindGroundAroundVictim(
+                victim,
+                out groundHit
+            ))
+            {
+                SpawnGroundBloodSplat(
+                    groundHit.point,
+                    groundHit.normal
+                );
+
+                return;
+            }
+        }
+
+
+        if (debugLogs)
+        {
+            Debug.LogWarning(
+                "[HIT FX] Could not find valid ground."
+            );
+        }
     }
+
 
     // =========================================================
     // FIND GROUND
@@ -390,21 +606,27 @@ public class HitEffectManager : MonoBehaviour
     {
         selectedHit = default;
 
+
         Vector3 origin =
             point +
             Vector3.up *
             groundRayStartHeight;
 
+
         if (debugGroundRay)
         {
             Debug.DrawRay(
                 origin,
-                Vector3.down *
-                groundRayDistance,
+                Vector3.down * groundRayDistance,
                 Color.green,
-                3f
+                2f
             );
         }
+
+
+        // -----------------------------------------------------
+        // USER LAYERS
+        // -----------------------------------------------------
 
         RaycastHit[] hits =
             Physics.RaycastAll(
@@ -415,6 +637,7 @@ public class HitEffectManager : MonoBehaviour
                 QueryTriggerInteraction.Ignore
             );
 
+
         if (TrySelectGroundHit(
             hits,
             victim,
@@ -423,6 +646,11 @@ public class HitEffectManager : MonoBehaviour
         {
             return true;
         }
+
+
+        // -----------------------------------------------------
+        // ALL LAYERS FALLBACK
+        // -----------------------------------------------------
 
         if (fallbackToAllLayers)
         {
@@ -435,6 +663,7 @@ public class HitEffectManager : MonoBehaviour
                     QueryTriggerInteraction.Ignore
                 );
 
+
             if (TrySelectGroundHit(
                 hits,
                 victim,
@@ -445,11 +674,13 @@ public class HitEffectManager : MonoBehaviour
             }
         }
 
+
         return false;
     }
 
+
     // =========================================================
-    // SELECT GROUND
+    // SELECT GROUND HIT
     // =========================================================
 
     private bool TrySelectGroundHit(
@@ -460,11 +691,13 @@ public class HitEffectManager : MonoBehaviour
     {
         selectedHit = default;
 
+
         if (hits == null ||
             hits.Length == 0)
         {
             return false;
         }
+
 
         System.Array.Sort(
             hits,
@@ -474,36 +707,57 @@ public class HitEffectManager : MonoBehaviour
                 )
         );
 
+
         foreach (RaycastHit hit in hits)
         {
-            if (hit.collider == null)
-                continue;
+            Collider collider =
+                hit.collider;
 
-            if (!hit.collider.enabled)
-                continue;
 
-            if (!hit.collider.gameObject.activeInHierarchy)
+            if (collider == null)
+            {
                 continue;
+            }
 
-            if (hit.collider.isTrigger)
+
+            if (!IsValidCollider(
+                collider
+            ))
+            {
                 continue;
+            }
+
+
+            // -------------------------------------------------
+            // NEVER ACCEPT ZOMBIE AS FLOOR
+            // -------------------------------------------------
 
             if (victim != null &&
                 IsColliderPartOfVictim(
-                    hit.collider,
+                    collider,
                     victim
                 ))
             {
                 continue;
             }
 
+
+            // -------------------------------------------------
+            // FLOOR NORMAL
+            // -------------------------------------------------
+
             Vector3 normal =
                 hit.normal;
 
+
             if (normal.sqrMagnitude < 0.001f)
+            {
                 continue;
+            }
+
 
             normal.Normalize();
+
 
             float upDot =
                 Vector3.Dot(
@@ -511,37 +765,135 @@ public class HitEffectManager : MonoBehaviour
                     Vector3.up
                 );
 
+
             if (onlyHorizontalSurfaces &&
                 upDot < minimumFloorNormal)
             {
                 continue;
             }
 
+
             selectedHit =
                 hit;
+
 
             if (debugLogs)
             {
                 Debug.Log(
-                    "[HIT FX] GROUND FOUND: " +
-                    hit.collider.name +
-                    " | point=" +
+                    "[HIT FX] GROUND FOUND\n" +
+                    "Collider: " +
+                    collider.name +
+                    "\nPoint: " +
                     hit.point +
-                    " | normal=" +
-                    hit.normal +
-                    " | upDot=" +
+                    "\nNormal: " +
+                    normal +
+                    "\nUpDot: " +
                     upDot
                 );
             }
 
+
             return true;
         }
+
 
         return false;
     }
 
+
     // =========================================================
-    // REAL BLOODSPLAT PREFAB
+    // MULTI POINT SEARCH
+    // =========================================================
+
+    private bool FindGroundAroundVictim(
+        Transform victim,
+        out RaycastHit selectedHit
+    )
+    {
+        selectedHit = default;
+
+
+        if (victim == null)
+        {
+            return false;
+        }
+
+
+        Vector3 center =
+            GetVictimCenterPoint(
+                victim
+            );
+
+
+        // CENTER
+
+        if (FindGround(
+            center,
+            victim,
+            out selectedHit
+        ))
+        {
+            return true;
+        }
+
+
+        int count =
+            Mathf.Max(
+                1,
+                groundSearchPoints
+            );
+
+
+        float radius =
+            Mathf.Max(
+                0.05f,
+                groundSearchRadius
+            );
+
+
+        for (int i = 0; i < count; i++)
+        {
+            float angle =
+                (360f / count) *
+                i;
+
+
+            float radians =
+                angle *
+                Mathf.Deg2Rad;
+
+
+            Vector3 offset =
+                new Vector3(
+                    Mathf.Cos(radians),
+                    0f,
+                    Mathf.Sin(radians)
+                ) *
+                radius;
+
+
+            Vector3 point =
+                center +
+                offset;
+
+
+            if (FindGround(
+                point,
+                victim,
+                out selectedHit
+            ))
+            {
+                return true;
+            }
+        }
+
+
+        return false;
+    }
+
+
+    // =========================================================
+    // SPAWN GROUND SPLAT
     // =========================================================
 
     private void SpawnGroundBloodSplat(
@@ -551,38 +903,35 @@ public class HitEffectManager : MonoBehaviour
     {
         if (bloodGroundEffect == null)
         {
-            Debug.LogError(
-                "[HIT FX] BloodSplat prefab jest NULL."
-            );
-
             return;
         }
 
-        if (normal.sqrMagnitude <
-            0.001f)
+
+        // -----------------------------------------------------
+        // NORMAL
+        // -----------------------------------------------------
+
+        if (normal.sqrMagnitude < 0.001f)
         {
             normal =
                 Vector3.up;
         }
 
+
         normal.Normalize();
 
+
         // -----------------------------------------------------
-        // LEKKIE ODSUNIĘCIE OD PODŁOGI
+        // FLOOR OFFSET
         // -----------------------------------------------------
 
         position +=
             normal *
             groundOffset;
 
+
         // -----------------------------------------------------
-        // ROTACJA
-        //
-        // BloodSplat z repo jest Particle Systemem.
-        // Nie potrzebujemy Decal Projectora.
-        //
-        // Renderer jest później ustawiany jako
-        // HorizontalBillboard.
+        // ROTATION
         // -----------------------------------------------------
 
         Quaternion rotation =
@@ -591,9 +940,10 @@ public class HitEffectManager : MonoBehaviour
                 normal
             );
 
+
         if (randomGroundRotation)
         {
-            Quaternion random =
+            Quaternion randomRotation =
                 Quaternion.AngleAxis(
                     Random.Range(
                         0f,
@@ -602,14 +952,16 @@ public class HitEffectManager : MonoBehaviour
                     normal
                 );
 
+
             rotation =
-                random *
+                randomRotation *
                 rotation;
         }
 
-        // -----------------------------------------------------
-        // INSTANTIATE
-        // -----------------------------------------------------
+
+        // =====================================================
+        // CREATE NOW
+        // =====================================================
 
         GameObject splat =
             Instantiate(
@@ -618,20 +970,34 @@ public class HitEffectManager : MonoBehaviour
                 rotation
             );
 
+
         if (splat == null)
         {
-            Debug.LogError(
-                "[HIT FX] BloodSplat Instantiate FAILED."
-            );
-
             return;
         }
+
 
         splat.name =
             bloodGroundEffect.name +
             "_GroundRuntime";
 
+
         splat.SetActive(true);
+
+
+        // -----------------------------------------------------
+        // IMPORTANT:
+        //
+        // Do NOT parent this to the zombie.
+        //
+        // The splat must stay at the world position.
+        // -----------------------------------------------------
+
+        splat.transform.SetParent(
+            null,
+            true
+        );
+
 
         // -----------------------------------------------------
         // SCALE
@@ -641,8 +1007,9 @@ public class HitEffectManager : MonoBehaviour
             Vector3.one *
             groundScale;
 
+
         // -----------------------------------------------------
-        // PARTICLE SYSTEMS
+        // PARTICLES
         // -----------------------------------------------------
 
         ParticleSystem[] systems =
@@ -650,131 +1017,40 @@ public class HitEffectManager : MonoBehaviour
                 true
             );
 
+
         if (systems == null ||
             systems.Length == 0)
         {
             Debug.LogError(
-                "[HIT FX] BloodSplat prefab NIE MA ParticleSystem."
+                "[HIT FX] BloodSplat contains no ParticleSystem."
             );
 
-            Destroy(splat);
+            Destroy(
+                splat
+            );
 
             return;
         }
 
-        // -----------------------------------------------------
-        // CONFIGURE PARTICLES
-        // -----------------------------------------------------
 
         foreach (ParticleSystem ps in systems)
         {
             if (ps == null)
+            {
                 continue;
-
-            ps.gameObject.SetActive(true);
-
-            ParticleSystem.MainModule main =
-                ps.main;
-
-            // ---------------------------------------------
-            // BLOODSPLAT Z REPO MA OKOŁO 0.4-0.5s
-            //
-            // Tutaj celowo wydłużamy życie cząstek,
-            // żeby ground splat nie znikał po chwili.
-            // ---------------------------------------------
-
-            main.startLifetime =
-                groundParticleLifetime;
-
-            // ---------------------------------------------
-            // BRAK GRAWITACJI
-            // ---------------------------------------------
-
-            if (disableGroundGravity)
-            {
-                main.gravityModifier =
-                    0f;
             }
 
-            // ---------------------------------------------
-            // BRAK RUCHU
-            // ---------------------------------------------
 
-            if (freezeGroundParticles)
-            {
-                main.startSpeed =
-                    0f;
-            }
-
-            // ---------------------------------------------
-            // EMISSION
-            //
-            // Nie zmieniamy tekstury ani materiału.
-            // Używamy konfiguracji prawdziwego BloodSplat.
-            // ---------------------------------------------
-
-            if (clearGroundParticlesBeforePlay)
-            {
-                ps.Stop(
-                    true,
-                    ParticleSystemStopBehavior.StopEmittingAndClear
-                );
-
-                ps.Clear(true);
-            }
-
-            // ---------------------------------------------
-            // RENDERER
-            // ---------------------------------------------
-
-            ParticleSystemRenderer renderer =
-                ps.GetComponent<ParticleSystemRenderer>();
-
-            if (renderer != null)
-            {
-                if (forceGroundHorizontalBillboard)
-                {
-                    renderer.renderMode =
-                        ParticleSystemRenderMode.HorizontalBillboard;
-                }
-
-                renderer.enabled = true;
-
-                renderer.gameObject.SetActive(true);
-
-                renderer.sortMode =
-                    ParticleSystemSortMode.Distance;
-            }
-
-            // ---------------------------------------------
-            // PLAY
-            // ---------------------------------------------
-
-            ps.Play(true);
-
-            if (debugLogs)
-            {
-                Debug.Log(
-                    "[HIT FX] GROUND BLOODSPLAT PLAY: " +
-                    ps.name +
-                    " | lifetime=" +
-                    groundParticleLifetime +
-                    " | startSpeed=0"
-                );
-            }
+            ConfigureGroundParticle(
+                ps
+            );
         }
 
-        // -----------------------------------------------------
-        // RENDERERS
-        // -----------------------------------------------------
 
         EnableAllRenderers(
             splat
         );
 
-        // -----------------------------------------------------
-        // DEBUG
-        // -----------------------------------------------------
 
         if (debugGroundRay)
         {
@@ -782,32 +1058,24 @@ public class HitEffectManager : MonoBehaviour
                 position,
                 normal * 0.5f,
                 Color.magenta,
-                10f
+                5f
             );
         }
+
 
         if (debugLogs)
         {
             Debug.Log(
-                "[HIT FX] BLOODSPLAT GROUND CREATED\n" +
+                "[HIT FX] GROUND SPLAT CREATED IMMEDIATELY\n" +
                 "Prefab: " +
                 bloodGroundEffect.name +
-                "\nObject: " +
-                splat.name +
                 "\nPosition: " +
                 position +
                 "\nNormal: " +
-                normal +
-                "\nScale: " +
-                groundScale +
-                "\nParticle lifetime: " +
-                groundParticleLifetime
+                normal
             );
         }
 
-        // -----------------------------------------------------
-        // OPTIONAL DESTROY
-        // -----------------------------------------------------
 
         if (bloodGroundLifetime > 0f)
         {
@@ -818,8 +1086,458 @@ public class HitEffectManager : MonoBehaviour
         }
     }
 
+
     // =========================================================
-    // VICTIM BOTTOM
+    // CONFIGURE GROUND PARTICLE
+    //
+    // THIS IS THE IMPORTANT PART.
+    //
+    // We completely remove the systems responsible for:
+    //
+    // - delayed appearance
+    // - growth
+    // - movement
+    // - acceleration
+    // - noise
+    // - gravity
+    // - secondary particles
+    // =========================================================
+
+    private void ConfigureGroundParticle(
+        ParticleSystem ps
+    )
+    {
+        if (ps == null)
+        {
+            return;
+        }
+
+
+        ps.gameObject.SetActive(true);
+
+
+        // -----------------------------------------------------
+        // STOP PREFAB
+        // -----------------------------------------------------
+
+        ps.Stop(
+            true,
+            ParticleSystemStopBehavior.StopEmittingAndClear
+        );
+
+
+        ps.Clear(
+            true
+        );
+
+
+        // =====================================================
+        // MAIN
+        // =====================================================
+
+        ParticleSystem.MainModule main =
+            ps.main;
+
+
+        // NO DELAY
+
+        main.startDelay =
+            0f;
+
+
+        // ONE SHOT
+
+        main.loop =
+            false;
+
+
+        // NO AUTO PLAY
+
+        main.playOnAwake =
+            false;
+
+
+        // NO PREWARM
+
+        main.prewarm =
+            false;
+
+
+        // PARTICLE LIFETIME
+
+        main.startLifetime =
+            Mathf.Max(
+                0.1f,
+                groundParticleLifetime
+            );
+
+
+        // -----------------------------------------------------
+        // SPEED
+        // -----------------------------------------------------
+
+        if (freezeGroundParticles)
+        {
+            main.startSpeed =
+                0f;
+        }
+
+
+        // -----------------------------------------------------
+        // GRAVITY
+        // -----------------------------------------------------
+
+        if (disableGroundGravity)
+        {
+            main.gravityModifier =
+                0f;
+        }
+
+
+        // -----------------------------------------------------
+        // WORLD SPACE
+        //
+        // Particle will NOT follow the zombie.
+        // -----------------------------------------------------
+
+        main.simulationSpace =
+            ParticleSystemSimulationSpace.World;
+
+
+        // =====================================================
+        // EMISSION
+        // =====================================================
+
+        ParticleSystem.EmissionModule emission =
+            ps.emission;
+
+
+        emission.enabled =
+            false;
+
+
+        // =====================================================
+        // SHAPE
+        // =====================================================
+
+        ParticleSystem.ShapeModule shape =
+            ps.shape;
+
+
+        shape.enabled =
+            false;
+
+
+        // =====================================================
+        // SIZE OVER LIFETIME
+        //
+        // THIS PREVENTS:
+        //
+        // small stain -> grows -> huge stain
+        //
+        // after several seconds.
+        // =====================================================
+
+        if (freezeGroundParticleSize)
+        {
+            ParticleSystem.SizeOverLifetimeModule sizeOverLifetime =
+                ps.sizeOverLifetime;
+
+
+            sizeOverLifetime.enabled =
+                false;
+        }
+
+
+        // =====================================================
+        // VELOCITY OVER LIFETIME
+        // =====================================================
+
+        if (disableGroundParticleMotion)
+        {
+            ParticleSystem.VelocityOverLifetimeModule velocity =
+                ps.velocityOverLifetime;
+
+
+            velocity.enabled =
+                false;
+        }
+
+
+        // =====================================================
+        // FORCE OVER LIFETIME
+        // =====================================================
+
+        if (disableGroundParticleMotion)
+        {
+            ParticleSystem.ForceOverLifetimeModule force =
+                ps.forceOverLifetime;
+
+
+            force.enabled =
+                false;
+        }
+
+
+        // =====================================================
+        // NOISE
+        // =====================================================
+
+        if (disableGroundParticleMotion)
+        {
+            ParticleSystem.NoiseModule noise =
+                ps.noise;
+
+
+            noise.enabled =
+                false;
+        }
+
+
+        // =====================================================
+        // LIMIT VELOCITY
+        // =====================================================
+
+        if (disableGroundParticleMotion)
+        {
+            ParticleSystem.LimitVelocityOverLifetimeModule limitVelocity =
+                ps.limitVelocityOverLifetime;
+
+
+            limitVelocity.enabled =
+                false;
+        }
+
+
+        // =====================================================
+        // COLLISION
+        // =====================================================
+
+        if (disableGroundParticleMotion)
+        {
+            ParticleSystem.CollisionModule collision =
+                ps.collision;
+
+
+            collision.enabled =
+                false;
+        }
+
+
+        // =====================================================
+        // TRIGGER
+        // =====================================================
+
+        if (disableGroundParticleMotion)
+        {
+            ParticleSystem.TriggerModule trigger =
+                ps.trigger;
+
+
+            trigger.enabled =
+                false;
+        }
+
+
+        // =====================================================
+        // INHERIT VELOCITY
+        // =====================================================
+
+        if (disableGroundParticleMotion)
+        {
+            ParticleSystem.InheritVelocityModule inheritVelocity =
+                ps.inheritVelocity;
+
+
+            inheritVelocity.enabled =
+                false;
+        }
+
+
+        // =====================================================
+        // EXTERNAL FORCES
+        // =====================================================
+
+        if (disableGroundParticleMotion)
+        {
+            ParticleSystem.ExternalForcesModule externalForces =
+                ps.externalForces;
+
+
+            externalForces.enabled =
+                false;
+        }
+
+
+        // =====================================================
+        // TRAILS
+        // =====================================================
+
+        ParticleSystem.TrailModule trails =
+            ps.trails;
+
+
+        trails.enabled =
+            false;
+
+
+        // =====================================================
+        // SUB EMITTERS
+        //
+        // This is extremely important if BloodFX has
+        // additional particle systems attached to the
+        // original BloodSplat.
+        //
+        // They can otherwise appear several seconds later.
+        // =====================================================
+
+        if (disableGroundSubEmitters)
+        {
+            ParticleSystem.SubEmittersModule subEmitters =
+                ps.subEmitters;
+
+
+            subEmitters.enabled =
+                false;
+        }
+
+
+        // =====================================================
+        // RENDERER
+        // =====================================================
+
+        ParticleSystemRenderer renderer =
+            ps.GetComponent<ParticleSystemRenderer>();
+
+
+        if (renderer != null)
+        {
+            renderer.enabled =
+                true;
+
+
+            if (forceGroundHorizontalBillboard)
+            {
+                renderer.renderMode =
+                    ParticleSystemRenderMode.HorizontalBillboard;
+            }
+
+
+            renderer.sortMode =
+                ParticleSystemSortMode.Distance;
+        }
+
+
+        // =====================================================
+        // EMIT EXACTLY ONE PARTICLE
+        //
+        // EmitParams ensures the particle is created NOW.
+        // =====================================================
+
+        ParticleSystem.EmitParams emitParams =
+            new ParticleSystem.EmitParams();
+
+
+        emitParams.startLifetime =
+            Mathf.Max(
+                0.1f,
+                groundParticleLifetime
+            );
+
+
+        if (freezeGroundParticles)
+        {
+            emitParams.velocity =
+                Vector3.zero;
+        }
+
+
+        ps.Emit(
+            emitParams,
+            1
+        );
+
+
+        if (debugLogs)
+        {
+            Debug.Log(
+                "[HIT FX] Ground particle emitted NOW: " +
+                ps.name
+            );
+        }
+    }
+
+
+    // =========================================================
+    // GET VICTIM CENTER
+    // =========================================================
+
+    private Vector3 GetVictimCenterPoint(
+        Transform victim
+    )
+    {
+        if (victim == null)
+        {
+            return Vector3.zero;
+        }
+
+
+        Collider[] colliders =
+            victim.GetComponentsInChildren<Collider>(
+                true
+            );
+
+
+        bool found =
+            false;
+
+
+        Bounds bounds =
+            new Bounds(
+                victim.position,
+                Vector3.zero
+            );
+
+
+        foreach (Collider collider in colliders)
+        {
+            if (!IsValidCollider(
+                collider
+            ))
+            {
+                continue;
+            }
+
+
+            if (!found)
+            {
+                bounds =
+                    collider.bounds;
+
+                found =
+                    true;
+            }
+            else
+            {
+                bounds.Encapsulate(
+                    collider.bounds
+                );
+            }
+        }
+
+
+        if (found)
+        {
+            return bounds.center;
+        }
+
+
+        return victim.position;
+    }
+
+
+    // =========================================================
+    // GET VICTIM BOTTOM
     // =========================================================
 
     private Vector3 GetVictimBottomPoint(
@@ -831,13 +1549,16 @@ public class HitEffectManager : MonoBehaviour
             return Vector3.zero;
         }
 
+
         Collider[] colliders =
             victim.GetComponentsInChildren<Collider>(
                 true
             );
 
-        bool foundBounds =
+
+        bool found =
             false;
+
 
         Bounds bounds =
             new Bounds(
@@ -845,17 +1566,23 @@ public class HitEffectManager : MonoBehaviour
                 Vector3.zero
             );
 
+
         foreach (Collider collider in colliders)
         {
-            if (!IsValidCollider(collider))
+            if (!IsValidCollider(
+                collider
+            ))
+            {
                 continue;
+            }
 
-            if (!foundBounds)
+
+            if (!found)
             {
                 bounds =
                     collider.bounds;
 
-                foundBounds =
+                found =
                     true;
             }
             else
@@ -866,22 +1593,27 @@ public class HitEffectManager : MonoBehaviour
             }
         }
 
-        if (foundBounds)
+
+        if (found)
         {
             Vector3 bottom =
                 bounds.center;
 
+
             bottom.y =
                 bounds.min.y;
+
 
             return bottom;
         }
 
+
         return victim.position;
     }
 
+
     // =========================================================
-    // HIT POINT
+    // GET HIT POINT
     // =========================================================
 
     public Vector3 GetHitPoint(
@@ -896,10 +1628,12 @@ public class HitEffectManager : MonoBehaviour
                 : Vector3.zero;
         }
 
+
         Collider[] colliders =
             victim.GetComponentsInChildren<Collider>(
                 true
             );
+
 
         if (colliders == null ||
             colliders.Length == 0)
@@ -910,6 +1644,11 @@ public class HitEffectManager : MonoBehaviour
             );
         }
 
+
+        // =====================================================
+        // RAYCAST FROM ATTACKER
+        // =====================================================
+
         if (useRaycastForMeshColliders &&
             attacker != null)
         {
@@ -919,47 +1658,58 @@ public class HitEffectManager : MonoBehaviour
                     attacker
                 );
 
+
             if (raycastPoint != Vector3.zero)
             {
-                if (debugHitPoint)
-                {
-                    Debug.DrawRay(
-                        raycastPoint,
-                        Vector3.up * 0.5f,
-                        Color.red,
-                        3f
-                    );
-                }
-
                 return raycastPoint +
                        Vector3.up *
                        hitHeightOffset;
             }
         }
 
+
+        // =====================================================
+        // CLOSEST COLLIDER POINT
+        // =====================================================
+
         Vector3 attackerPosition =
             attacker != null
                 ? attacker.position
                 : victim.transform.position;
 
+
         Vector3 closestPoint =
             victim.transform.position;
+
 
         float closestDistance =
             float.MaxValue;
 
+
         bool foundPoint =
             false;
 
+
         foreach (Collider collider in colliders)
         {
-            if (!IsValidCollider(collider))
+            if (!IsValidCollider(
+                collider
+            ))
+            {
                 continue;
+            }
 
-            if (!CanUseClosestPoint(collider))
+
+            if (!CanUseClosestPoint(
+                collider
+            ))
+            {
                 continue;
+            }
+
 
             Vector3 point;
+
 
             try
             {
@@ -973,11 +1723,13 @@ public class HitEffectManager : MonoBehaviour
                 continue;
             }
 
+
             float distance =
                 (
                     attackerPosition -
                     point
                 ).sqrMagnitude;
+
 
             if (distance <
                 closestDistance)
@@ -985,30 +1737,24 @@ public class HitEffectManager : MonoBehaviour
                 closestDistance =
                     distance;
 
+
                 closestPoint =
                     point;
+
 
                 foundPoint =
                     true;
             }
         }
 
+
         if (foundPoint)
         {
-            if (debugHitPoint)
-            {
-                Debug.DrawRay(
-                    closestPoint,
-                    Vector3.up * 0.5f,
-                    Color.red,
-                    3f
-                );
-            }
-
             return closestPoint +
                    Vector3.up *
                    hitHeightOffset;
         }
+
 
         return GetFallbackHitPoint(
             victim,
@@ -1016,62 +1762,9 @@ public class HitEffectManager : MonoBehaviour
         );
     }
 
-    // =========================================================
-    // VALID COLLIDER
-    // =========================================================
-
-    private bool IsValidCollider(
-        Collider collider
-    )
-    {
-        if (collider == null)
-            return false;
-
-        if (!collider.enabled)
-            return false;
-
-        if (!collider.gameObject.activeInHierarchy)
-            return false;
-
-        if (collider.isTrigger)
-            return false;
-
-        return true;
-    }
 
     // =========================================================
-    // CLOSEST POINT
-    // =========================================================
-
-    private bool CanUseClosestPoint(
-        Collider collider
-    )
-    {
-        if (collider == null)
-            return false;
-
-        if (collider is BoxCollider)
-            return true;
-
-        if (collider is SphereCollider)
-            return true;
-
-        if (collider is CapsuleCollider)
-            return true;
-
-        MeshCollider meshCollider =
-            collider as MeshCollider;
-
-        if (meshCollider != null)
-        {
-            return meshCollider.convex;
-        }
-
-        return false;
-    }
-
-    // =========================================================
-    // VICTIM RAYCAST
+    // RAYCAST VICTIM
     // =========================================================
 
     private Vector3 TryGetVictimRaycastHitPoint(
@@ -1085,62 +1778,27 @@ public class HitEffectManager : MonoBehaviour
             return Vector3.zero;
         }
 
+
         Vector3 target =
-            victim.transform.position;
-
-        Collider[] colliders =
-            victim.GetComponentsInChildren<Collider>(
-                true
+            GetVictimCenterPoint(
+                victim.transform
             );
 
-        bool foundBounds =
-            false;
-
-        Bounds bounds =
-            new Bounds(
-                target,
-                Vector3.zero
-            );
-
-        foreach (Collider collider in colliders)
-        {
-            if (!IsValidCollider(collider))
-                continue;
-
-            if (!foundBounds)
-            {
-                bounds =
-                    collider.bounds;
-
-                foundBounds =
-                    true;
-            }
-            else
-            {
-                bounds.Encapsulate(
-                    collider.bounds
-                );
-            }
-        }
-
-        if (foundBounds)
-        {
-            target =
-                bounds.center;
-        }
 
         Vector3 direction =
             target -
             attacker.position;
 
-        if (direction.sqrMagnitude <
-            0.001f)
+
+        if (direction.sqrMagnitude < 0.001f)
         {
             direction =
                 attacker.forward;
         }
 
+
         direction.Normalize();
+
 
         RaycastHit[] hits =
             Physics.RaycastAll(
@@ -1151,11 +1809,13 @@ public class HitEffectManager : MonoBehaviour
                 QueryTriggerInteraction.Ignore
             );
 
+
         if (hits == null ||
             hits.Length == 0)
         {
             return Vector3.zero;
         }
+
 
         System.Array.Sort(
             hits,
@@ -1165,10 +1825,14 @@ public class HitEffectManager : MonoBehaviour
                 )
         );
 
+
         foreach (RaycastHit hit in hits)
         {
             if (hit.collider == null)
+            {
                 continue;
+            }
+
 
             if (!IsValidCollider(
                 hit.collider
@@ -1177,35 +1841,106 @@ public class HitEffectManager : MonoBehaviour
                 continue;
             }
 
+
             if (IsColliderPartOfVictim(
                 hit.collider,
-                victim
+                victim.transform
             ))
             {
                 return hit.point;
             }
         }
 
+
         return Vector3.zero;
     }
 
+
     // =========================================================
-    // VICTIM COLLIDER
+    // VALID COLLIDER
     // =========================================================
 
-    private bool IsColliderPartOfVictim(
-        Collider collider,
-        Health victim
+    private bool IsValidCollider(
+        Collider collider
     )
     {
-        if (victim == null)
+        if (collider == null)
+        {
             return false;
+        }
 
-        return IsColliderPartOfVictim(
-            collider,
-            victim.transform
-        );
+
+        if (!collider.enabled)
+        {
+            return false;
+        }
+
+
+        if (!collider.gameObject.activeInHierarchy)
+        {
+            return false;
+        }
+
+
+        if (collider.isTrigger)
+        {
+            return false;
+        }
+
+
+        return true;
     }
+
+
+    // =========================================================
+    // CLOSEST POINT SUPPORT
+    // =========================================================
+
+    private bool CanUseClosestPoint(
+        Collider collider
+    )
+    {
+        if (collider == null)
+        {
+            return false;
+        }
+
+
+        if (collider is BoxCollider)
+        {
+            return true;
+        }
+
+
+        if (collider is SphereCollider)
+        {
+            return true;
+        }
+
+
+        if (collider is CapsuleCollider)
+        {
+            return true;
+        }
+
+
+        MeshCollider meshCollider =
+            collider as MeshCollider;
+
+
+        if (meshCollider != null)
+        {
+            return meshCollider.convex;
+        }
+
+
+        return false;
+    }
+
+
+    // =========================================================
+    // COLLIDER PART OF VICTIM
+    // =========================================================
 
     private bool IsColliderPartOfVictim(
         Collider collider,
@@ -1218,11 +1953,16 @@ public class HitEffectManager : MonoBehaviour
             return false;
         }
 
+
         Transform colliderTransform =
             collider.transform;
 
+
         if (colliderTransform == victim)
+        {
             return true;
+        }
+
 
         if (colliderTransform.IsChildOf(
             victim
@@ -1231,6 +1971,7 @@ public class HitEffectManager : MonoBehaviour
             return true;
         }
 
+
         if (victim.IsChildOf(
             colliderTransform
         ))
@@ -1238,8 +1979,10 @@ public class HitEffectManager : MonoBehaviour
             return true;
         }
 
+
         return false;
     }
+
 
     // =========================================================
     // FALLBACK HIT POINT
@@ -1257,13 +2000,22 @@ public class HitEffectManager : MonoBehaviour
                 : Vector3.zero;
         }
 
+
+        Vector3 center =
+            GetVictimCenterPoint(
+                victim.transform
+            );
+
+
         Collider[] colliders =
             victim.GetComponentsInChildren<Collider>(
                 true
             );
 
+
         bool foundBounds =
             false;
+
 
         Bounds bounds =
             new Bounds(
@@ -1271,10 +2023,16 @@ public class HitEffectManager : MonoBehaviour
                 Vector3.zero
             );
 
+
         foreach (Collider collider in colliders)
         {
-            if (!IsValidCollider(collider))
+            if (!IsValidCollider(
+                collider
+            ))
+            {
                 continue;
+            }
+
 
             if (!foundBounds)
             {
@@ -1292,24 +2050,24 @@ public class HitEffectManager : MonoBehaviour
             }
         }
 
+
         if (foundBounds)
         {
-            Vector3 center =
-                bounds.center;
-
             Vector3 attackerPosition =
                 attacker != null
                     ? attacker.position
                     : center;
 
+
             Vector3 direction =
                 attackerPosition -
                 center;
 
-            if (direction.sqrMagnitude >
-                0.001f)
+
+            if (direction.sqrMagnitude > 0.001f)
             {
                 direction.Normalize();
+
 
                 Vector3 point =
                     center +
@@ -1318,90 +2076,121 @@ public class HitEffectManager : MonoBehaviour
                         bounds.extents
                     );
 
+
                 point +=
                     Vector3.up *
                     hitHeightOffset;
 
+
                 return point;
             }
+
 
             center.y +=
                 hitHeightOffset;
 
+
             return center;
         }
+
 
         Vector3 fallback =
             victim.transform.position;
 
+
         fallback.y +=
             fallbackHeight;
+
 
         return fallback;
     }
 
-    // =========================================================
-    // PUBLIC HIT EFFECT
-    // =========================================================
-
-    public void PlayHitEffects(
-        Health victim,
-        Transform attacker
-    )
-    {
-        if (victim == null)
-        {
-            Debug.LogWarning(
-                "[HIT FX] Victim is null."
-            );
-
-            return;
-        }
-
-        Vector3 hitPosition =
-            GetHitPoint(
-                victim,
-                attacker
-            );
-
-        if (debugLogs)
-        {
-            Debug.Log(
-                "[HIT FX] Calculated hit position: " +
-                hitPosition
-            );
-        }
-
-        PlayBloodHit(
-            hitPosition,
-            victim.transform,
-            attacker
-        );
-    }
 
     // =========================================================
-    // PLAY PARTICLES
+    // CONFIGURE HIT PARTICLES
+    //
+    // Here we also remove delayed behaviour from the HIT BURST.
     // =========================================================
 
-    private void PlayAllParticleSystems(
-        GameObject effect,
-        bool ground
+    private void ConfigureAndPlayHitParticles(
+        GameObject effect
     )
     {
         if (effect == null)
+        {
             return;
+        }
+
 
         ParticleSystem[] systems =
             effect.GetComponentsInChildren<ParticleSystem>(
                 true
             );
 
+
         foreach (ParticleSystem ps in systems)
         {
             if (ps == null)
+            {
                 continue;
+            }
+
 
             ps.gameObject.SetActive(true);
+
+
+            ParticleSystem.MainModule main =
+                ps.main;
+
+
+            // -------------------------------------------------
+            // NO DELAY
+            // -------------------------------------------------
+
+            main.startDelay =
+                0f;
+
+
+            // -------------------------------------------------
+            // NO LOOP
+            // -------------------------------------------------
+
+            main.loop =
+                false;
+
+
+            // -------------------------------------------------
+            // NO AUTO PLAY
+            // -------------------------------------------------
+
+            main.playOnAwake =
+                false;
+
+
+            // -------------------------------------------------
+            // NO PREWARM
+            // -------------------------------------------------
+
+            main.prewarm =
+                false;
+
+
+            // -------------------------------------------------
+            // FORCE WHITE
+            //
+            // Prevents a black Start Color from the prefab.
+            // -------------------------------------------------
+
+            if (forceHitParticleWhite)
+            {
+                main.startColor =
+                    Color.white;
+            }
+
+
+            // -------------------------------------------------
+            // CLEAR OLD PARTICLES
+            // -------------------------------------------------
 
             if (clearParticlesBeforePlay)
             {
@@ -1410,28 +2199,38 @@ public class HitEffectManager : MonoBehaviour
                     ParticleSystemStopBehavior.StopEmittingAndClear
                 );
 
-                ps.Clear(true);
+
+                ps.Clear(
+                    true
+                );
             }
+
+
+            // -------------------------------------------------
+            // PLAY NOW
+            // -------------------------------------------------
 
             if (forcePlayParticleSystems)
             {
-                ps.Play(true);
+                ps.Play(
+                    true
+                );
             }
+
 
             if (debugLogs)
             {
                 Debug.Log(
-                    "[HIT FX] Playing particle: " +
-                    ps.name +
-                    " | ground=" +
-                    ground
+                    "[HIT FX] Hit particle played NOW: " +
+                    ps.name
                 );
             }
         }
     }
 
+
     // =========================================================
-    // RENDERERS
+    // ENABLE ALL RENDERERS
     // =========================================================
 
     private void EnableAllRenderers(
@@ -1439,30 +2238,33 @@ public class HitEffectManager : MonoBehaviour
     )
     {
         if (effect == null)
+        {
             return;
+        }
+
 
         Renderer[] renderers =
             effect.GetComponentsInChildren<Renderer>(
                 true
             );
 
+
         foreach (Renderer renderer in renderers)
         {
             if (renderer == null)
+            {
                 continue;
+            }
+
 
             renderer.gameObject.SetActive(true);
-            renderer.enabled = true;
-        }
 
-        if (debugLogs)
-        {
-            Debug.Log(
-                "[HIT FX] Enabled renderers: " +
-                renderers.Length
-            );
+
+            renderer.enabled =
+                true;
         }
     }
+
 
     // =========================================================
     // CLEANUP
