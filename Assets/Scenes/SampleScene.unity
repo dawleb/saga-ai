@@ -640,6 +640,7 @@ MonoBehaviour:
   bloodForwardOffset: 0.03
   forcePlayParticleSystems: 1
   clearParticlesBeforePlay: 1
+  forceHitParticleWhite: 1
   bloodGroundEffect: {fileID: 4025144459378658748, guid: f39422bb1821f7d47809b398bc6c90bd, type: 3}
   bloodGroundLifetime: 0
   groundParticleLifetime: 90
@@ -649,16 +650,21 @@ MonoBehaviour:
   disableGroundGravity: 1
   clearGroundParticlesBeforePlay: 1
   randomGroundRotation: 1
-  groundRayStartHeight: 1.5
+  freezeGroundParticleSize: 1
+  disableGroundParticleMotion: 1
+  disableGroundSubEmitters: 1
   groundOffset: 0.01
+  groundRayStartHeight: 1.5
   groundRayDistance: 50
   groundLayers:
     serializedVersion: 2
     m_Bits: 4294967295
   fallbackToAllLayers: 1
-  useHitPointGroundRay: 1
   useVictimBottomRay: 1
   useVictimCenterRay: 1
+  useMultiPointGroundSearch: 1
+  groundSearchRadius: 0.45
+  groundSearchPoints: 8
   minimumFloorNormal: 0.7
   onlyHorizontalSurfaces: 1
   hitHeightOffset: 0.3
@@ -847,6 +853,11 @@ MonoBehaviour:
   aimDuration: 0.15
   shootingRotationSpeed: 25
   continuouslyCorrectAim: 1
+  bulletSpeed: 35
+  bulletTrailLength: 0.65
+  bulletTrailWidth: 0.018
+  bulletTrailFadeDuration: 0.04
+  showBulletTracer: 1
   requireLineOfSight: 1
   shootingObstacleLayers:
     serializedVersion: 2

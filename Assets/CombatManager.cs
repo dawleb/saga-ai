@@ -3,7 +3,6 @@ using System.Collections;
 using UnityEngine;
 using Random = UnityEngine.Random;
 
-
 public class CombatManager : MonoBehaviour
 {
     public static CombatManager Instance;
@@ -96,6 +95,55 @@ public class CombatManager : MonoBehaviour
     public bool continuouslyCorrectAim = true;
 
     // =========================================================
+    // WEAPON / MUZZLE
+    // =========================================================
+
+    [Header("Weapon")]
+    [Tooltip("Point at the end of the gun barrel where the tracer starts. " +
+             "Can be assigned automatically by WeaponHolder.")]
+    public Transform muzzlePoint;
+
+    [Tooltip("If enabled, CombatManager automatically searches the dynamically " +
+             "created Weapon for MuzzlePoint.")]
+    public bool automaticallyFindMuzzle = true;
+
+    [Tooltip("Names accepted when searching for the muzzle.")]
+    public string[] muzzleNames =
+    {
+        "MuzzlePoint",
+        "Muzzle",
+        "BarrelEnd",
+        "Barrel",
+        "FirePoint",
+        "FirePoint_R",
+        "ShootPoint"
+    };
+
+    // =========================================================
+    // BULLET / TRACER
+    // =========================================================
+
+    [Header("Bullet Tracer")]
+    [Tooltip("Speed of the visual bullet travelling to the target.")]
+    [Min(0.1f)]
+    public float bulletSpeed = 35f;
+
+    [Tooltip("Length of the subtle bullet trail.")]
+    [Min(0.01f)]
+    public float bulletTrailLength = 0.35f;
+
+    [Tooltip("Width of the bullet trail at its thickest point.")]
+    [Min(0.0001f)]
+    public float bulletTrailWidth = 0.018f;
+
+    [Tooltip("How long the bullet trail remains visible after reaching the target.")]
+    [Min(0f)]
+    public float bulletTrailFadeDuration = 0.04f;
+
+    [Tooltip("If enabled, the tracer is visible in the Game view.")]
+    public bool showBulletTracer = true;
+
+    // =========================================================
     // LINE OF SIGHT
     // =========================================================
 
@@ -181,14 +229,13 @@ public class CombatManager : MonoBehaviour
     // =========================================================
 
     private float nextRoundTime;
+    private float playerCombatHeight;
 
     private bool fightFinished;
     private bool roundInProgress;
     private bool isReloading;
 
     private int shotsFired;
-
-    private float playerCombatHeight;
 
     // =========================================================
     // UNITY
@@ -208,15 +255,26 @@ public class CombatManager : MonoBehaviour
     private void Start()
     {
         InitializeCombatants();
+        ValidateSettings();
+
+        // Weapon może zostać utworzony przez WeaponHolder dopiero
+        // po Start(), dlatego próbujemy znaleźć muzzle również tutaj.
+        RefreshMuzzlePoint();
 
         if (player == null)
         {
-            Debug.LogError("[COMBAT] Player Health not found.");
+            Debug.LogError(
+                "[COMBAT] Player Health not found.",
+                this
+            );
         }
 
         if (monster == null)
         {
-            Debug.LogError("[COMBAT] Monster Health not found.");
+            Debug.LogError(
+                "[COMBAT] Monster Health not found.",
+                this
+            );
         }
     }
 
@@ -230,10 +288,23 @@ public class CombatManager : MonoBehaviour
 
         KeepPlayerAtCombatHeight();
 
-        float distance = GetHorizontalDistance(
-            player.transform,
-            monster.transform
-        );
+        // =====================================================
+        // DYNAMIC WEAPON / MUZZLE
+        // =====================================================
+
+        // Weapon jest tworzony przez WeaponHolder w runtime.
+        // Nie możemy zakładać, że muzzlePoint istniał w Start().
+        if (automaticallyFindMuzzle &&
+            muzzlePoint == null)
+        {
+            RefreshMuzzlePoint();
+        }
+
+        float distance =
+            GetHorizontalDistance(
+                player.transform,
+                monster.transform
+            );
 
         // =====================================================
         // MELEE HAS PRIORITY
@@ -256,6 +327,249 @@ public class CombatManager : MonoBehaviour
     }
 
     // =========================================================
+    // MUZZLE POINT API
+    // =========================================================
+
+    /// <summary>
+    /// WeaponHolder może wywołać tę metodę po utworzeniu broni.
+    /// Dzięki temu CombatManager zawsze zna aktualny muzzle.
+    /// </summary>
+    public void SetMuzzlePoint(Transform point)
+    {
+        if (point == null)
+        {
+            Debug.LogWarning(
+                "[COMBAT] WeaponHolder attempted to register a NULL MuzzlePoint.",
+                this
+            );
+
+            return;
+        }
+
+        muzzlePoint = point;
+
+        Debug.Log(
+            $"[COMBAT] MuzzlePoint registered: {GetTransformPath(point)}",
+            point
+        );
+    }
+
+    // =========================================================
+    // AUTOMATIC MUZZLE SEARCH
+    // =========================================================
+
+    private void RefreshMuzzlePoint()
+    {
+        if (player == null)
+            return;
+
+        // Najpierw sprawdzamy, czy aktualnie przypisany muzzle
+        // nadal istnieje i jest dzieckiem Playera.
+        if (muzzlePoint != null)
+        {
+            if (muzzlePoint.gameObject != null &&
+                muzzlePoint.IsChildOf(player.transform))
+            {
+                return;
+            }
+
+            muzzlePoint = null;
+        }
+
+        Transform[] allTransforms =
+            player.GetComponentsInChildren<Transform>(true);
+
+        // -----------------------------------------------------
+        // 1. Szukamy po nazwie MuzzlePoint / Muzzle / FirePoint
+        // -----------------------------------------------------
+
+        foreach (Transform current in allTransforms)
+        {
+            if (current == null)
+                continue;
+
+            if (IsMuzzleName(current.name))
+            {
+                muzzlePoint = current;
+
+                Debug.Log(
+                    $"[COMBAT] Automatically found muzzle: " +
+                    $"{GetTransformPath(current)}",
+                    current
+                );
+
+                return;
+            }
+        }
+
+        // -----------------------------------------------------
+        // 2. Szukamy obiektu Weapon i jego dzieci
+        // -----------------------------------------------------
+
+        foreach (Transform current in allTransforms)
+        {
+            if (current == null)
+                continue;
+
+            if (!string.Equals(
+                    current.name,
+                    "Weapon",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            Transform weaponMuzzle =
+                FindMuzzleInside(current);
+
+            if (weaponMuzzle != null)
+            {
+                muzzlePoint = weaponMuzzle;
+
+                Debug.Log(
+                    $"[COMBAT] Found muzzle inside Weapon: " +
+                    $"{GetTransformPath(weaponMuzzle)}",
+                    weaponMuzzle
+                );
+
+                return;
+            }
+        }
+    }
+
+    private Transform FindMuzzleInside(
+        Transform weapon
+    )
+    {
+        if (weapon == null)
+            return null;
+
+        Transform[] children =
+            weapon.GetComponentsInChildren<Transform>(true);
+
+        foreach (Transform child in children)
+        {
+            if (child == null)
+                continue;
+
+            if (IsMuzzleName(child.name))
+            {
+                return child;
+            }
+        }
+
+        return null;
+    }
+
+    private bool IsMuzzleName(
+        string objectName
+    )
+    {
+        if (string.IsNullOrEmpty(objectName))
+            return false;
+
+        if (muzzleNames != null)
+        {
+            foreach (string acceptedName in muzzleNames)
+            {
+                if (string.IsNullOrEmpty(acceptedName))
+                    continue;
+
+                if (string.Equals(
+                        objectName,
+                        acceptedName,
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+        }
+
+        string lower =
+            objectName.ToLowerInvariant();
+
+        return lower.Contains("muzzle") ||
+               lower.Contains("firepoint") ||
+               lower.Contains("shootpoint") ||
+               lower.Contains("barrelend");
+    }
+
+    private string GetTransformPath(
+        Transform target
+    )
+    {
+        if (target == null)
+            return "NULL";
+
+        string path =
+            target.name;
+
+        Transform current =
+            target.parent;
+
+        int safety = 0;
+
+        while (current != null &&
+               safety < 100)
+        {
+            path =
+                current.name +
+                "/" +
+                path;
+
+            current =
+                current.parent;
+
+            safety++;
+        }
+
+        return path;
+    }
+
+    // =========================================================
+    // VALIDATION
+    // =========================================================
+
+    private void ValidateSettings()
+    {
+        if (damageMax < damageMin)
+        {
+            Debug.LogWarning(
+                "[COMBAT] damageMax is lower than damageMin. " +
+                "Values will be automatically normalized.",
+                this
+            );
+        }
+
+        if (shootingDamageMax < shootingDamageMin)
+        {
+            Debug.LogWarning(
+                "[COMBAT] shootingDamageMax is lower than shootingDamageMin. " +
+                "Values will be automatically normalized.",
+                this
+            );
+        }
+
+        if (meleeCombatDistance > attackRange)
+        {
+            Debug.LogWarning(
+                "[COMBAT] meleeCombatDistance is greater than attackRange. " +
+                "Melee positioning may not behave as expected.",
+                this
+            );
+        }
+
+        if (muzzlePoint == null)
+        {
+            Debug.Log(
+                "[COMBAT] Muzzle Point is currently empty. " +
+                "This is OK if WeaponHolder creates the weapon at runtime.",
+                this
+            );
+        }
+    }
+
+    // =========================================================
     // INITIALIZATION
     // =========================================================
 
@@ -266,7 +580,8 @@ public class CombatManager : MonoBehaviour
 
         if (player != null)
         {
-            playerCombatHeight = player.transform.position.y;
+            playerCombatHeight =
+                player.transform.position.y;
         }
 
         ResetCombatState();
@@ -274,8 +589,11 @@ public class CombatManager : MonoBehaviour
 
     private void CacheCombatantReferences()
     {
-        playerAnimator = FindAttackAnimator(player, "Player");
-        monsterAnimator = FindAttackAnimator(monster, "Monster");
+        playerAnimator =
+            FindAttackAnimator(player, "Player");
+
+        monsterAnimator =
+            FindAttackAnimator(monster, "Monster");
 
         FindPlayerClickController();
         FindPlayerController();
@@ -294,7 +612,8 @@ public class CombatManager : MonoBehaviour
 
         shotsFired = 0;
 
-        nextRoundTime = Time.time + 0.5f;
+        nextRoundTime =
+            Time.time + 0.5f;
 
         ResetCombatAnimator(playerAnimator);
         ResetCombatAnimator(monsterAnimator);
@@ -314,8 +633,11 @@ public class CombatManager : MonoBehaviour
             return false;
         }
 
-        if (player.IsDead() || monster.IsDead())
+        if (player.IsDead() ||
+            monster.IsDead())
+        {
             return false;
+        }
 
         return true;
     }
@@ -326,17 +648,11 @@ public class CombatManager : MonoBehaviour
 
     private void FindCombatants()
     {
-        // If both are already assigned, don't touch them.
         if (player != null && monster != null)
             return;
 
-        Health[] healthObjects = FindObjectsByType<Health>();
-
-        // -----------------------------------------------------
-        // First pass:
-        // Find a SimpleAgent whose target points to Player.
-        // That Health is treated as Monster.
-        // -----------------------------------------------------
+        Health[] healthObjects =
+            FindObjectsOfType<Health>(true);
 
         foreach (Health health in healthObjects)
         {
@@ -358,34 +674,31 @@ public class CombatManager : MonoBehaviour
             if (targetHealth == null)
                 continue;
 
+            if (targetHealth == health)
+                continue;
+
             if (monster == null)
-            {
                 monster = health;
-            }
 
             if (player == null)
-            {
                 player = targetHealth;
-            }
 
-            if (player != null && monster != null)
+            if (player != null &&
+                monster != null)
+            {
                 break;
+            }
         }
-
-        // -----------------------------------------------------
-        // Second pass:
-        // Find missing references.
-        // -----------------------------------------------------
 
         if (player == null)
         {
             foreach (Health health in healthObjects)
             {
-                if (health == null)
+                if (health == null ||
+                    health == monster)
+                {
                     continue;
-
-                if (health == monster)
-                    continue;
+                }
 
                 PlayerController controller =
                     health.GetComponentInParent<PlayerController>();
@@ -402,11 +715,11 @@ public class CombatManager : MonoBehaviour
         {
             foreach (Health health in healthObjects)
             {
-                if (health == null)
+                if (health == null ||
+                    health == player)
+                {
                     continue;
-
-                if (health == player)
-                    continue;
+                }
 
                 SimpleAgent agent =
                     health.GetComponentInParent<SimpleAgent>();
@@ -419,15 +732,13 @@ public class CombatManager : MonoBehaviour
             }
         }
 
-        // -----------------------------------------------------
-        // Final fallback.
-        // -----------------------------------------------------
-
-        if (player == null && monster != null)
+        if (player == null &&
+            monster != null)
         {
             foreach (Health health in healthObjects)
             {
-                if (health != null && health != monster)
+                if (health != null &&
+                    health != monster)
                 {
                     player = health;
                     break;
@@ -435,11 +746,13 @@ public class CombatManager : MonoBehaviour
             }
         }
 
-        if (monster == null && player != null)
+        if (monster == null &&
+            player != null)
         {
             foreach (Health health in healthObjects)
             {
-                if (health != null && health != player)
+                if (health != null &&
+                    health != player)
                 {
                     monster = health;
                     break;
@@ -526,14 +839,17 @@ public class CombatManager : MonoBehaviour
         if (animator == null)
         {
             Debug.LogWarning(
-                $"[COMBAT] {label} has no Animator."
+                $"[COMBAT] {label} has no Animator.",
+                combatant
             );
         }
 
         return animator;
     }
 
-    private void DisableRootMotion(Animator animator)
+    private void DisableRootMotion(
+        Animator animator
+    )
     {
         if (animator == null)
             return;
@@ -553,14 +869,25 @@ public class CombatManager : MonoBehaviour
         if (player == null)
             return;
 
-        Vector3 position = player.transform.position;
+        Transform playerTransform =
+            player.transform;
 
-        if (Mathf.Abs(position.y - playerCombatHeight) <= 0.001f)
+        Vector3 position =
+            playerTransform.position;
+
+        if (Mathf.Abs(
+                position.y -
+                playerCombatHeight
+            ) <= 0.001f)
+        {
             return;
+        }
 
-        position.y = playerCombatHeight;
+        position.y =
+            playerCombatHeight;
 
-        player.transform.position = position;
+        playerTransform.position =
+            position;
     }
 
     // =========================================================
@@ -572,16 +899,25 @@ public class CombatManager : MonoBehaviour
         Transform b
     )
     {
-        if (a == null || b == null)
+        if (a == null ||
+            b == null)
+        {
             return Mathf.Infinity;
+        }
 
-        Vector3 aPosition = a.position;
-        Vector3 bPosition = b.position;
+        Vector3 aPosition =
+            a.position;
+
+        Vector3 bPosition =
+            b.position;
 
         aPosition.y = 0f;
         bPosition.y = 0f;
 
-        return Vector3.Distance(aPosition, bPosition);
+        return Vector3.Distance(
+            aPosition,
+            bPosition
+        );
     }
 
     // =========================================================
@@ -610,18 +946,24 @@ public class CombatManager : MonoBehaviour
         if (roundInProgress)
             return;
 
-        float distance = GetHorizontalDistance(
-            player.transform,
-            monster.transform
-        );
+        float distance =
+            GetHorizontalDistance(
+                player.transform,
+                monster.transform
+            );
 
-        if (distance > meleeCombatDistance + 0.1f)
+        if (distance >
+            meleeCombatDistance + 0.1f)
+        {
             return;
+        }
 
         if (Time.time < nextRoundTime)
             return;
 
-        StartCoroutine(ResolveMeleeRound());
+        StartCoroutine(
+            ResolveMeleeRound()
+        );
     }
 
     // =========================================================
@@ -636,13 +978,17 @@ public class CombatManager : MonoBehaviour
         if (!IsCombatReady())
             return;
 
-        float currentDistance = GetHorizontalDistance(
-            player.transform,
-            monster.transform
-        );
+        float currentDistance =
+            GetHorizontalDistance(
+                player.transform,
+                monster.transform
+            );
 
-        if (currentDistance <= meleeCombatDistance)
+        if (currentDistance <=
+            meleeCombatDistance)
+        {
             return;
+        }
 
         Vector3 direction =
             monster.transform.position -
@@ -650,47 +996,54 @@ public class CombatManager : MonoBehaviour
 
         direction.y = 0f;
 
-        if (direction.sqrMagnitude < 0.0001f)
+        if (direction.sqrMagnitude <
+            0.0001f)
+        {
             return;
+        }
 
         direction.Normalize();
 
         float requiredMovement =
-            currentDistance - meleeCombatDistance;
-
-        // -----------------------------------------------------
-        // PLAYER
-        // -----------------------------------------------------
+            currentDistance -
+            meleeCombatDistance;
 
         if (playerController != null)
         {
             playerController.StopMovement();
         }
 
-        float playerMovement = Mathf.Min(
-            requiredMovement * 0.5f,
-            meleeApproachSpeed * Time.deltaTime
-        );
+        float playerMovement =
+            Mathf.Min(
+                requiredMovement * 0.5f,
+                meleeApproachSpeed *
+                Time.deltaTime
+            );
 
         Vector3 playerPosition =
             player.transform.position;
 
-        playerPosition += direction * playerMovement;
-        playerPosition.y = playerCombatHeight;
+        playerPosition +=
+            direction *
+            playerMovement;
 
-        player.transform.position = playerPosition;
+        playerPosition.y =
+            playerCombatHeight;
 
-        // -----------------------------------------------------
-        // MONSTER
-        // -----------------------------------------------------
+        player.transform.position =
+            playerPosition;
 
-        currentDistance = GetHorizontalDistance(
-            player.transform,
-            monster.transform
-        );
+        currentDistance =
+            GetHorizontalDistance(
+                player.transform,
+                monster.transform
+            );
 
-        if (currentDistance <= meleeCombatDistance)
+        if (currentDistance <=
+            meleeCombatDistance)
+        {
             return;
+        }
 
         Vector3 monsterDirection =
             player.transform.position -
@@ -698,23 +1051,31 @@ public class CombatManager : MonoBehaviour
 
         monsterDirection.y = 0f;
 
-        if (monsterDirection.sqrMagnitude < 0.0001f)
+        if (monsterDirection.sqrMagnitude <
+            0.0001f)
+        {
             return;
+        }
 
         monsterDirection.Normalize();
 
-        float monsterMovement = Mathf.Min(
-            currentDistance - meleeCombatDistance,
-            monsterMeleeApproachSpeed * Time.deltaTime
-        );
+        float monsterMovement =
+            Mathf.Min(
+                currentDistance -
+                meleeCombatDistance,
+                monsterMeleeApproachSpeed *
+                Time.deltaTime
+            );
 
         Vector3 monsterPosition =
             monster.transform.position;
 
         monsterPosition +=
-            monsterDirection * monsterMovement;
+            monsterDirection *
+            monsterMovement;
 
-        monster.transform.position = monsterPosition;
+        monster.transform.position =
+            monsterPosition;
     }
 
     // =========================================================
@@ -723,11 +1084,14 @@ public class CombatManager : MonoBehaviour
 
     private static bool HasParameter(
         Animator animator,
-        string paramName,
+        string parameterName,
         AnimatorControllerParameterType type
     )
     {
         if (animator == null)
+            return false;
+
+        if (animator.runtimeAnimatorController == null)
             return false;
 
         foreach (
@@ -735,7 +1099,7 @@ public class CombatManager : MonoBehaviour
             in animator.parameters
         )
         {
-            if (parameter.name == paramName &&
+            if (parameter.name == parameterName &&
                 parameter.type == type)
             {
                 return true;
@@ -746,7 +1110,7 @@ public class CombatManager : MonoBehaviour
     }
 
     // =========================================================
-    // SAFE TRIGGER
+    // SAFE TRIGGERS
     // =========================================================
 
     private static void SafeResetTrigger(
@@ -798,7 +1162,8 @@ public class CombatManager : MonoBehaviour
         if (playerClickController == null)
             return false;
 
-        return playerClickController.SelectedEnemy == monster;
+        return playerClickController.SelectedEnemy ==
+               monster;
     }
 
     // =========================================================
@@ -810,42 +1175,60 @@ public class CombatManager : MonoBehaviour
         if (!requireLineOfSight)
             return true;
 
-        if (player == null || monster == null)
+        if (player == null ||
+            monster == null)
+        {
             return false;
+        }
 
-        Vector3 origin = GetShootingOrigin();
-        Vector3 target = GetAimPosition(monster);
+        Vector3 origin =
+            GetShootingOrigin();
 
-        Vector3 direction = target - origin;
+        Vector3 target =
+            GetAimPosition(monster);
 
-        float distance = direction.magnitude;
+        Vector3 direction =
+            target - origin;
+
+        float distance =
+            direction.magnitude;
 
         if (distance <= 0.001f)
             return true;
 
         direction /= distance;
 
-        origin += direction * lineOfSightStartOffset;
+        float offset =
+            Mathf.Min(
+                lineOfSightStartOffset,
+                distance
+            );
 
-        distance -= lineOfSightStartOffset;
+        origin +=
+            direction * offset;
+
+        distance -= offset;
 
         if (distance <= 0f)
             return true;
 
-        RaycastHit[] hits = Physics.RaycastAll(
-            origin,
-            direction,
-            distance,
-            shootingObstacleLayers,
-            QueryTriggerInteraction.Ignore
-        );
+        RaycastHit[] hits =
+            Physics.RaycastAll(
+                origin,
+                direction,
+                distance,
+                shootingObstacleLayers,
+                QueryTriggerInteraction.Ignore
+            );
 
         if (debugLineOfSight)
         {
             Debug.DrawRay(
                 origin,
                 direction * distance,
-                hits.Length > 0 ? Color.red : Color.green
+                hits.Length > 0
+                    ? Color.red
+                    : Color.green
             );
         }
 
@@ -854,7 +1237,8 @@ public class CombatManager : MonoBehaviour
 
         Array.Sort(
             hits,
-            (a, b) => a.distance.CompareTo(b.distance)
+            (a, b) =>
+                a.distance.CompareTo(b.distance)
         );
 
         foreach (RaycastHit hit in hits)
@@ -862,11 +1246,15 @@ public class CombatManager : MonoBehaviour
             if (hit.collider == null)
                 continue;
 
-            Transform hitTransform = hit.collider.transform;
+            Transform hitTransform =
+                hit.collider.transform;
 
-            // Monster is not an obstacle.
-            if (hitTransform.IsChildOf(monster.transform) ||
-                monster.transform.IsChildOf(hitTransform))
+            if (hitTransform.IsChildOf(
+                    monster.transform
+                ) ||
+                monster.transform.IsChildOf(
+                    hitTransform
+                ))
             {
                 continue;
             }
@@ -883,16 +1271,70 @@ public class CombatManager : MonoBehaviour
 
     private Vector3 GetShootingOrigin()
     {
+        // =====================================================
+        // 1. AKTUALNY MUZZLE
+        // =====================================================
+
+        if (automaticallyFindMuzzle &&
+            muzzlePoint == null)
+        {
+            RefreshMuzzlePoint();
+        }
+
+        if (muzzlePoint != null)
+        {
+            // Upewniamy się, że muzzle nadal należy do Playera.
+            if (player != null &&
+                muzzlePoint.IsChildOf(player.transform))
+            {
+                return muzzlePoint.position;
+            }
+
+            muzzlePoint = null;
+
+            RefreshMuzzlePoint();
+
+            if (muzzlePoint != null)
+                return muzzlePoint.position;
+        }
+
+        // =====================================================
+        // 2. OSTATECZNY FALLBACK
+        // =====================================================
+
+        // To nie powinno być używane, jeśli WeaponHolder
+        // poprawnie utworzył MuzzlePoint.
         if (player == null)
-            return Vector3.zero;
+            return transform.position;
 
-        Collider collider =
-            player.GetComponentInChildren<Collider>();
+        Collider[] colliders =
+            player.GetComponentsInChildren<Collider>(
+                true
+            );
 
-        if (collider != null)
+        // Szukamy collidera, ale pomijamy Weapon,
+        // żeby nie brać przypadkowego punktu z broni.
+        foreach (Collider collider in colliders)
+        {
+            if (collider == null)
+                continue;
+
+            Transform colliderTransform =
+                collider.transform;
+
+            if (colliderTransform.name
+                    .ToLowerInvariant()
+                    .Contains("weapon"))
+            {
+                continue;
+            }
+
             return collider.bounds.center;
+        }
 
-        Vector3 position = player.transform.position;
+        Vector3 position =
+            player.transform.position;
+
         position.y += 1f;
 
         return position;
@@ -924,10 +1366,6 @@ public class CombatManager : MonoBehaviour
             player.transform
         );
 
-        // -----------------------------------------------------
-        // PLAYER ATTACK
-        // -----------------------------------------------------
-
         yield return StartCoroutine(
             PerformMeleeAttack(
                 playerAnimator,
@@ -937,15 +1375,12 @@ public class CombatManager : MonoBehaviour
             )
         );
 
-        if (fightFinished || !IsCombatReady())
+        if (fightFinished ||
+            !IsCombatReady())
         {
             roundInProgress = false;
             yield break;
         }
-
-        // -----------------------------------------------------
-        // MONSTER ATTACK
-        // -----------------------------------------------------
 
         MaintainMeleeDistance();
 
@@ -961,7 +1396,11 @@ public class CombatManager : MonoBehaviour
         if (!fightFinished)
         {
             nextRoundTime =
-                Time.time + roundCooldown;
+                Time.time +
+                Mathf.Max(
+                    0f,
+                    roundCooldown
+                );
         }
 
         roundInProgress = false;
@@ -978,11 +1417,17 @@ public class CombatManager : MonoBehaviour
         bool monsterAttacking
     )
     {
-        if (attacker == null || defender == null)
+        if (attacker == null ||
+            defender == null)
+        {
             yield break;
+        }
 
-        if (attacker.IsDead() || defender.IsDead())
+        if (attacker.IsDead() ||
+            defender.IsDead())
+        {
             yield break;
+        }
 
         if (!attacker.gameObject.activeInHierarchy ||
             !defender.gameObject.activeInHierarchy)
@@ -997,25 +1442,24 @@ public class CombatManager : MonoBehaviour
             defender.transform
         );
 
-        string selectedTrigger = AttackTrigger;
-
-        // -----------------------------------------------------
-        // MONSTER ATTACK TYPE
-        // -----------------------------------------------------
+        string selectedTrigger =
+            AttackTrigger;
 
         if (monsterAttacking)
         {
-            bool hasBite = HasParameter(
-                attackerAnimator,
-                BiteTrigger,
-                AnimatorControllerParameterType.Trigger
-            );
+            bool hasBite =
+                HasParameter(
+                    attackerAnimator,
+                    BiteTrigger,
+                    AnimatorControllerParameterType.Trigger
+                );
 
-            bool hasAttack = HasParameter(
-                attackerAnimator,
-                AttackTrigger,
-                AnimatorControllerParameterType.Trigger
-            );
+            bool hasAttack =
+                HasParameter(
+                    attackerAnimator,
+                    AttackTrigger,
+                    AnimatorControllerParameterType.Trigger
+                );
 
             if (hasBite && hasAttack)
             {
@@ -1026,11 +1470,13 @@ public class CombatManager : MonoBehaviour
             }
             else if (hasBite)
             {
-                selectedTrigger = BiteTrigger;
+                selectedTrigger =
+                    BiteTrigger;
             }
             else if (hasAttack)
             {
-                selectedTrigger = AttackTrigger;
+                selectedTrigger =
+                    AttackTrigger;
             }
             else
             {
@@ -1049,10 +1495,6 @@ public class CombatManager : MonoBehaviour
             }
         }
 
-        // -----------------------------------------------------
-        // PLAY ATTACK
-        // -----------------------------------------------------
-
         SafeResetTrigger(
             attackerAnimator,
             AttackTrigger
@@ -1068,16 +1510,15 @@ public class CombatManager : MonoBehaviour
             selectedTrigger
         );
 
-        // -----------------------------------------------------
-        // WAIT FOR HIT
-        // -----------------------------------------------------
-
         float timer = 0f;
 
         while (timer < damageDelay)
         {
-            if (fightFinished || !IsCombatReady())
+            if (fightFinished ||
+                !IsCombatReady())
+            {
                 yield break;
+            }
 
             MaintainMeleeDistance();
 
@@ -1091,39 +1532,42 @@ public class CombatManager : MonoBehaviour
             yield return null;
         }
 
-        // -----------------------------------------------------
-        // FINAL VALIDATION
-        // -----------------------------------------------------
-
-        if (fightFinished || !IsCombatReady())
+        if (fightFinished ||
+            !IsCombatReady())
+        {
             yield break;
+        }
 
-        // -----------------------------------------------------
-        // DAMAGE
-        // -----------------------------------------------------
+        float distance =
+            GetHorizontalDistance(
+                attacker.transform,
+                defender.transform
+            );
 
-        float damage = Random.Range(
-            Mathf.Min(damageMin, damageMax),
-            Mathf.Max(damageMin, damageMax)
-        );
+        if (distance >
+            meleeCombatDistance + 0.35f)
+        {
+            yield break;
+        }
+
+        float damage =
+            Random.Range(
+                Mathf.Min(
+                    damageMin,
+                    damageMax
+                ),
+                Mathf.Max(
+                    damageMin,
+                    damageMax
+                )
+            );
 
         defender.TakeDamage(damage);
 
-        // -----------------------------------------------------
-        // HIT FX
-        // -----------------------------------------------------
-
-        if (HitEffectManager.Instance != null)
-        {
-            HitEffectManager.Instance.PlayHitEffects(
-                defender,
-                attacker.transform
-            );
-        }
-
-        // -----------------------------------------------------
-        // DAMAGE ANIMATION
-        // -----------------------------------------------------
+        PlayHitEffects(
+            defender,
+            attacker.transform
+        );
 
         Animator defenderAnimator =
             defender == player
@@ -1135,24 +1579,18 @@ public class CombatManager : MonoBehaviour
             defender.name
         );
 
-        // -----------------------------------------------------
-        // DEATH
-        // -----------------------------------------------------
-
         if (defender.IsDead())
         {
             FinishFight(defender);
             yield break;
         }
 
-        // -----------------------------------------------------
-        // FINISH ATTACK ANIMATION
-        // -----------------------------------------------------
-
-        float remainingTime = Mathf.Max(
-            0f,
-            attackAnimationDuration - damageDelay
-        );
+        float remainingTime =
+            Mathf.Max(
+                0f,
+                attackAnimationDuration -
+                damageDelay
+            );
 
         if (remainingTime > 0f)
         {
@@ -1163,16 +1601,44 @@ public class CombatManager : MonoBehaviour
     }
 
     // =========================================================
+    // HIT EFFECTS
+    // =========================================================
+
+    private void PlayHitEffects(
+        Health target,
+        Transform attacker
+    )
+    {
+        if (target == null)
+            return;
+
+        if (HitEffectManager.Instance == null)
+            return;
+
+        HitEffectManager.Instance.PlayHitEffects(
+            target,
+            attacker != null
+                ? attacker
+                : transform
+        );
+    }
+
+    // =========================================================
     // RANGED COMBAT
     // =========================================================
 
-    private void HandleRangedCombat(float distance)
+    private void HandleRangedCombat(
+        float distance
+    )
     {
         if (distance > shootingRange)
             return;
 
-        if (isReloading || roundInProgress)
+        if (isReloading ||
+            roundInProgress)
+        {
             return;
+        }
 
         StopPlayerMovementOnly();
 
@@ -1184,7 +1650,9 @@ public class CombatManager : MonoBehaviour
         if (Time.time < nextRoundTime)
             return;
 
-        StartCoroutine(PerformShoot());
+        StartCoroutine(
+            PerformShoot()
+        );
     }
 
     // =========================================================
@@ -1195,17 +1663,9 @@ public class CombatManager : MonoBehaviour
     {
         roundInProgress = true;
 
-        if (!IsCombatReady())
-        {
-            roundInProgress = false;
-            yield break;
-        }
-
-        if (!HasSelectedEnemy())
-        {
-            roundInProgress = false;
-            yield break;
-        }
+        // Weapon może być tworzony dokładnie w tym momencie.
+        // Jeszcze raz szukamy muzzle przed rozpoczęciem strzału.
+        RefreshMuzzlePoint();
 
         if (!CanShoot())
         {
@@ -1213,23 +1673,7 @@ public class CombatManager : MonoBehaviour
             yield break;
         }
 
-        // -----------------------------------------------------
-        // STOP
-        // -----------------------------------------------------
-
         StopPlayerMovementOnly();
-
-        // -----------------------------------------------------
-        // AIM
-        // -----------------------------------------------------
-
-        if (!HasLineOfSightToMonster())
-        {
-            roundInProgress = false;
-            yield break;
-        }
-
-        RotateSoldierTowardsTarget();
 
         SafeResetTrigger(
             playerAnimator,
@@ -1241,14 +1685,15 @@ public class CombatManager : MonoBehaviour
             ShootingTrigger
         );
 
+        SafeResetTrigger(
+            playerAnimator,
+            ReloadingTrigger
+        );
+
         SafeSetTrigger(
             playerAnimator,
             AimTrigger
         );
-
-        // -----------------------------------------------------
-        // AIM TIMER
-        // -----------------------------------------------------
 
         float timer = 0f;
 
@@ -1261,16 +1706,20 @@ public class CombatManager : MonoBehaviour
             }
 
             RotateSoldierTowardsTarget();
+
+            // WeaponHolder może odtworzyć/zmienić broń,
+            // dlatego kontrolujemy muzzle również podczas aim.
+            if (muzzlePoint == null)
+            {
+                RefreshMuzzlePoint();
+            }
+
             KeepPlayerAtCombatHeight();
 
             timer += Time.deltaTime;
 
             yield return null;
         }
-
-        // -----------------------------------------------------
-        // FINAL AIM
-        // -----------------------------------------------------
 
         RotateSoldierTowardsTarget();
 
@@ -1279,10 +1728,6 @@ public class CombatManager : MonoBehaviour
             roundInProgress = false;
             yield break;
         }
-
-        // -----------------------------------------------------
-        // SHOOT ANIMATION
-        // -----------------------------------------------------
 
         SafeResetTrigger(
             playerAnimator,
@@ -1293,10 +1738,6 @@ public class CombatManager : MonoBehaviour
             playerAnimator,
             ShootingTrigger
         );
-
-        // -----------------------------------------------------
-        // BULLET DELAY
-        // -----------------------------------------------------
 
         timer = 0f;
 
@@ -1313,16 +1754,17 @@ public class CombatManager : MonoBehaviour
                 RotateSoldierTowardsTarget();
             }
 
+            if (muzzlePoint == null)
+            {
+                RefreshMuzzlePoint();
+            }
+
             KeepPlayerAtCombatHeight();
 
             timer += Time.deltaTime;
 
             yield return null;
         }
-
-        // -----------------------------------------------------
-        // FINAL VALIDATION
-        // -----------------------------------------------------
 
         if (!CanContinueShooting())
         {
@@ -1332,79 +1774,514 @@ public class CombatManager : MonoBehaviour
 
         RotateSoldierTowardsTarget();
 
-        // -----------------------------------------------------
-        // DAMAGE
-        // -----------------------------------------------------
+        // =====================================================
+        // SNAPSHOT SHOT
+        // =====================================================
 
-        float damage = Random.Range(
-            Mathf.Min(
-                shootingDamageMin,
-                shootingDamageMax
-            ),
-            Mathf.Max(
-                shootingDamageMin,
-                shootingDamageMax
+        // Najważniejsze:
+        // punkt startowy jest pobierany DOPIERO tutaj.
+        // Dzięki temu dynamicznie utworzony Weapon jest uwzględniony.
+        Vector3 bulletStart =
+            GetShootingOrigin();
+
+        Vector3 bulletTarget =
+            GetAimPosition(monster);
+
+        Health targetAtShot =
+            monster;
+
+        float damage =
+            Random.Range(
+                Mathf.Min(
+                    shootingDamageMin,
+                    shootingDamageMax
+                ),
+                Mathf.Max(
+                    shootingDamageMin,
+                    shootingDamageMax
+                )
+            );
+
+        Debug.DrawLine(
+            bulletStart,
+            bulletTarget,
+            Color.yellow,
+            1f
+        );
+
+        Debug.Log(
+            $"[COMBAT] SHOOT FROM: " +
+            $"{GetMuzzleDebugName()} | " +
+            $"Position: {bulletStart}"
+        );
+
+        yield return StartCoroutine(
+            TravelBulletToTarget(
+                bulletStart,
+                bulletTarget,
+                targetAtShot,
+                damage
             )
         );
 
-        monster.TakeDamage(damage);
-
-        // -----------------------------------------------------
-        // HIT FX
-        // -----------------------------------------------------
-
-        if (HitEffectManager.Instance != null)
+        if (fightFinished)
         {
-            HitEffectManager.Instance.PlayHitEffects(
-                monster,
-                player.transform
-            );
-        }
-
-        // -----------------------------------------------------
-        // DAMAGE ANIMATION
-        // -----------------------------------------------------
-
-        PlayRandomGetDamage(
-            monsterAnimator,
-            monster.name
-        );
-
-        shotsFired++;
-
-        Debug.Log(
-            $"[COMBAT] Shot #{shotsFired}. " +
-            $"Monster HP: {monster.CurrentHealth:F1}"
-        );
-
-        // -----------------------------------------------------
-        // DEATH
-        // -----------------------------------------------------
-
-        if (monster.IsDead())
-        {
-            FinishFight(monster);
-
             roundInProgress = false;
             yield break;
         }
 
-        // -----------------------------------------------------
-        // RELOAD
-        // -----------------------------------------------------
+        shotsFired++;
 
-        if (shotsFired >= Mathf.Max(1, shotsBeforeReload))
+        Debug.Log(
+            $"[COMBAT] Shot #{shotsFired}."
+        );
+
+        if (!fightFinished &&
+            shotsFired >=
+            Mathf.Max(
+                1,
+                shotsBeforeReload
+            ))
         {
-            yield return StartCoroutine(Reload());
+            yield return StartCoroutine(
+                Reload()
+            );
         }
 
         if (!fightFinished)
         {
             nextRoundTime =
-                Time.time + shootingInterval;
+                Time.time +
+                Mathf.Max(
+                    0f,
+                    shootingInterval
+                );
         }
 
         roundInProgress = false;
+    }
+
+    private string GetMuzzleDebugName()
+    {
+        if (muzzlePoint == null)
+            return "FALLBACK";
+
+        return GetTransformPath(muzzlePoint);
+    }
+
+    // =========================================================
+    // BULLET TRAVEL
+    // =========================================================
+
+    private IEnumerator TravelBulletToTarget(
+        Vector3 startPosition,
+        Vector3 targetPosition,
+        Health target,
+        float damage
+    )
+    {
+        if (target == null)
+            yield break;
+
+        float distance =
+            Vector3.Distance(
+                startPosition,
+                targetPosition
+            );
+
+        float travelTime =
+            distance /
+            Mathf.Max(
+                0.1f,
+                bulletSpeed
+            );
+
+        travelTime =
+            Mathf.Max(
+                travelTime,
+                0.01f
+            );
+
+        GameObject tracerObject = null;
+        LineRenderer tracer = null;
+
+        if (showBulletTracer)
+        {
+            tracerObject =
+                CreateBulletTracer(
+                    out tracer
+                );
+        }
+
+        float timer = 0f;
+
+        Vector3 previousPosition =
+            startPosition;
+
+        while (timer < travelTime)
+        {
+            if (fightFinished ||
+                target == null ||
+                target.IsDead())
+            {
+                DestroyTracer(
+                    tracerObject
+                );
+
+                yield break;
+            }
+
+            timer += Time.deltaTime;
+
+            float progress =
+                Mathf.Clamp01(
+                    timer /
+                    travelTime
+                );
+
+            float smoothProgress =
+                Mathf.SmoothStep(
+                    0f,
+                    1f,
+                    progress
+                );
+
+            Vector3 currentPosition =
+                Vector3.Lerp(
+                    startPosition,
+                    targetPosition,
+                    smoothProgress
+                );
+
+            if (tracer != null)
+            {
+                UpdateTracer(
+                    tracer,
+                    previousPosition,
+                    currentPosition
+                );
+            }
+
+            previousPosition =
+                currentPosition;
+
+            yield return null;
+        }
+
+        if (tracer != null)
+        {
+            tracer.SetPosition(
+                0,
+                targetPosition
+            );
+
+            tracer.SetPosition(
+                1,
+                targetPosition
+            );
+        }
+
+        if (!fightFinished &&
+            target != null &&
+            !target.IsDead())
+        {
+            target.TakeDamage(damage);
+
+            PlayHitEffects(
+                target,
+                player != null
+                    ? player.transform
+                    : transform
+            );
+
+            Animator defenderAnimator =
+                target == player
+                    ? playerAnimator
+                    : monsterAnimator;
+
+            PlayRandomGetDamage(
+                defenderAnimator,
+                target.name
+            );
+
+            if (target.IsDead())
+            {
+                FinishFight(target);
+            }
+        }
+
+        if (tracerObject != null)
+        {
+            if (bulletTrailFadeDuration > 0f &&
+                tracer != null)
+            {
+                yield return StartCoroutine(
+                    FadeBulletTracer(
+                        tracer,
+                        bulletTrailFadeDuration
+                    )
+                );
+            }
+
+            DestroyTracer(
+                tracerObject
+            );
+        }
+    }
+
+    // =========================================================
+    // UPDATE TRACER
+    // =========================================================
+
+    private void UpdateTracer(
+        LineRenderer tracer,
+        Vector3 previousPosition,
+        Vector3 currentPosition
+    )
+    {
+        if (tracer == null)
+            return;
+
+        Vector3 direction =
+            currentPosition -
+            previousPosition;
+
+        float directionLength =
+            direction.magnitude;
+
+        if (directionLength <= 0.0001f)
+        {
+            tracer.SetPosition(
+                0,
+                currentPosition
+            );
+
+            tracer.SetPosition(
+                1,
+                currentPosition
+            );
+
+            return;
+        }
+
+        direction /=
+            directionLength;
+
+        float actualTrailLength =
+            Mathf.Min(
+                bulletTrailLength,
+                directionLength * 3f
+            );
+
+        Vector3 trailStart =
+            currentPosition -
+            direction *
+            actualTrailLength;
+
+        tracer.SetPosition(
+            0,
+            trailStart
+        );
+
+        tracer.SetPosition(
+            1,
+            currentPosition
+        );
+    }
+
+    // =========================================================
+    // CREATE BULLET TRACER
+    // =========================================================
+
+    private GameObject CreateBulletTracer(
+        out LineRenderer lineRenderer
+    )
+    {
+        GameObject tracerObject =
+            new GameObject(
+                "BulletTracer"
+            );
+
+        lineRenderer =
+            tracerObject.AddComponent<LineRenderer>();
+
+        lineRenderer.positionCount = 2;
+        lineRenderer.useWorldSpace = true;
+
+        lineRenderer.startWidth =
+            bulletTrailWidth;
+
+        lineRenderer.endWidth =
+            bulletTrailWidth * 0.15f;
+
+        lineRenderer.numCapVertices = 2;
+        lineRenderer.numCornerVertices = 2;
+
+        lineRenderer.shadowCastingMode =
+            UnityEngine.Rendering.ShadowCastingMode.Off;
+
+        lineRenderer.receiveShadows = false;
+
+        Shader shader =
+            Shader.Find("Sprites/Default");
+
+        if (shader != null)
+        {
+            Material material =
+                new Material(shader);
+
+            material.name =
+                "CombatManager_BulletTracer_Material";
+
+            lineRenderer.material =
+                material;
+        }
+
+        Gradient gradient =
+            new Gradient();
+
+        GradientColorKey[] colorKeys =
+        {
+            new GradientColorKey(
+                Color.white,
+                0f
+            ),
+
+            new GradientColorKey(
+                Color.white,
+                1f
+            )
+        };
+
+        GradientAlphaKey[] alphaKeys =
+        {
+            new GradientAlphaKey(
+                0f,
+                0f
+            ),
+
+            new GradientAlphaKey(
+                0.18f,
+                0.35f
+            ),
+
+            new GradientAlphaKey(
+                0.75f,
+                1f
+            )
+        };
+
+        gradient.SetKeys(
+            colorKeys,
+            alphaKeys
+        );
+
+        lineRenderer.colorGradient =
+            gradient;
+
+        return tracerObject;
+    }
+
+    // =========================================================
+    // DESTROY TRACER
+    // =========================================================
+
+    private void DestroyTracer(
+        GameObject tracerObject
+    )
+    {
+        if (tracerObject == null)
+            return;
+
+        LineRenderer lineRenderer =
+            tracerObject.GetComponent<LineRenderer>();
+
+        if (lineRenderer != null &&
+            lineRenderer.material != null)
+        {
+            Destroy(
+                lineRenderer.material
+            );
+        }
+
+        Destroy(
+            tracerObject
+        );
+    }
+
+    // =========================================================
+    // FADE BULLET TRACER
+    // =========================================================
+
+    private IEnumerator FadeBulletTracer(
+        LineRenderer lineRenderer,
+        float duration
+    )
+    {
+        if (lineRenderer == null)
+            yield break;
+
+        if (duration <= 0f)
+            yield break;
+
+        Gradient originalGradient =
+            lineRenderer.colorGradient;
+
+        GradientColorKey[] originalColorKeys =
+            originalGradient.colorKeys;
+
+        GradientAlphaKey[] originalAlphaKeys =
+            originalGradient.alphaKeys;
+
+        float timer = 0f;
+
+        while (timer < duration)
+        {
+            if (lineRenderer == null)
+                yield break;
+
+            timer += Time.deltaTime;
+
+            float progress =
+                Mathf.Clamp01(
+                    timer / duration
+                );
+
+            float alphaMultiplier =
+                1f - progress;
+
+            GradientAlphaKey[] fadedKeys =
+                new GradientAlphaKey[
+                    originalAlphaKeys.Length
+                ];
+
+            for (
+                int i = 0;
+                i < originalAlphaKeys.Length;
+                i++
+            )
+            {
+                fadedKeys[i] =
+                    new GradientAlphaKey(
+                        originalAlphaKeys[i].alpha *
+                        alphaMultiplier,
+                        originalAlphaKeys[i].time
+                    );
+            }
+
+            Gradient gradient =
+                new Gradient();
+
+            gradient.SetKeys(
+                originalColorKeys,
+                fadedKeys
+            );
+
+            lineRenderer.colorGradient =
+                gradient;
+
+            yield return null;
+        }
     }
 
     // =========================================================
@@ -1419,10 +2296,11 @@ public class CombatManager : MonoBehaviour
         if (!HasSelectedEnemy())
             return false;
 
-        float distance = GetHorizontalDistance(
-            player.transform,
-            monster.transform
-        );
+        float distance =
+            GetHorizontalDistance(
+                player.transform,
+                monster.transform
+            );
 
         if (distance > shootingRange)
             return false;
@@ -1441,10 +2319,11 @@ public class CombatManager : MonoBehaviour
         if (!HasSelectedEnemy())
             return false;
 
-        float distance = GetHorizontalDistance(
-            player.transform,
-            monster.transform
-        );
+        float distance =
+            GetHorizontalDistance(
+                player.transform,
+                monster.transform
+            );
 
         if (distance > shootingRange)
             return false;
@@ -1456,24 +2335,31 @@ public class CombatManager : MonoBehaviour
     }
 
     // =========================================================
-    // ROTATE PLAYER TO MONSTER
+    // ROTATE SOLDIER
     // =========================================================
 
     private void RotateSoldierTowardsTarget()
     {
-        if (player == null || monster == null)
+        if (player == null ||
+            monster == null)
+        {
             return;
+        }
 
         Vector3 target =
             GetAimPosition(monster);
 
         Vector3 direction =
-            target - player.transform.position;
+            target -
+            player.transform.position;
 
         direction.y = 0f;
 
-        if (direction.sqrMagnitude < 0.001f)
+        if (direction.sqrMagnitude <
+            0.001f)
+        {
             return;
+        }
 
         Quaternion targetRotation =
             Quaternion.LookRotation(
@@ -1496,7 +2382,9 @@ public class CombatManager : MonoBehaviour
     // AIM POSITION
     // =========================================================
 
-    private Vector3 GetAimPosition(Health target)
+    private Vector3 GetAimPosition(
+        Health target
+    )
     {
         if (target == null)
             return Vector3.zero;
@@ -1538,7 +2426,9 @@ public class CombatManager : MonoBehaviour
 
         StopPlayerMovementOnly();
 
-        Debug.Log("[COMBAT] Soldier Reloading.");
+        Debug.Log(
+            "[COMBAT] Soldier Reloading."
+        );
 
         SafeResetTrigger(
             playerAnimator,
@@ -1580,7 +2470,9 @@ public class CombatManager : MonoBehaviour
             ReloadingTrigger
         );
 
-        Debug.Log("[COMBAT] Reload finished.");
+        Debug.Log(
+            "[COMBAT] Reload finished."
+        );
     }
 
     // =========================================================
@@ -1592,8 +2484,11 @@ public class CombatManager : MonoBehaviour
         Transform opponent
     )
     {
-        if (fighter == null || opponent == null)
+        if (fighter == null ||
+            opponent == null)
+        {
             return;
+        }
 
         Vector3 direction =
             opponent.position -
@@ -1601,8 +2496,11 @@ public class CombatManager : MonoBehaviour
 
         direction.y = 0f;
 
-        if (direction.sqrMagnitude < 0.001f)
+        if (direction.sqrMagnitude <
+            0.001f)
+        {
             return;
+        }
 
         Quaternion targetRotation =
             Quaternion.LookRotation(
@@ -1622,7 +2520,7 @@ public class CombatManager : MonoBehaviour
     }
 
     // =========================================================
-    // STOP PLAYER
+    // STOP PLAYER MOVEMENT ONLY
     // =========================================================
 
     private void StopPlayerMovementOnly()
@@ -1673,7 +2571,7 @@ public class CombatManager : MonoBehaviour
             ))
         {
             int randomIndex =
-                UnityEngine.Random.Range(0, 2);
+                Random.Range(0, 2);
 
             animator.SetInteger(
                 GetDamageIndexInt,
@@ -1696,10 +2594,15 @@ public class CombatManager : MonoBehaviour
     // FINISH FIGHT
     // =========================================================
 
-    private void FinishFight(Health loser)
+    private void FinishFight(
+        Health loser
+    )
     {
-        if (fightFinished || loser == null)
+        if (fightFinished ||
+            loser == null)
+        {
             return;
+        }
 
         fightFinished = true;
         roundInProgress = false;
@@ -1707,7 +2610,8 @@ public class CombatManager : MonoBehaviour
 
         StopAllCoroutines();
 
-        bool playerWon = loser == monster;
+        bool playerWon =
+            loser == monster;
 
         Debug.Log(
             playerWon
@@ -1715,24 +2619,12 @@ public class CombatManager : MonoBehaviour
                 : "[COMBAT] MONSTER WINS!"
         );
 
-        // -----------------------------------------------------
-        // Disable selection
-        // -----------------------------------------------------
-
         DisablePlayerSelection();
-
-        // -----------------------------------------------------
-        // Player death
-        // -----------------------------------------------------
 
         if (loser == player)
         {
             StopPlayerMovement();
         }
-
-        // -----------------------------------------------------
-        // Monster death
-        // -----------------------------------------------------
 
         if (loser == monster)
         {
@@ -1746,29 +2638,21 @@ public class CombatManager : MonoBehaviour
             }
         }
 
-        // -----------------------------------------------------
-        // Health bar
-        // -----------------------------------------------------
-
         HideHealthBar(loser);
-
-        // -----------------------------------------------------
-        // Death animation
-        // -----------------------------------------------------
 
         PlayDeath(loser);
 
-        // -----------------------------------------------------
-        // Victory
-        // -----------------------------------------------------
-
         if (playerWon)
         {
-            StartCoroutine(PlayerVictory());
+            StartCoroutine(
+                PlayerVictory()
+            );
         }
         else
         {
-            StartCoroutine(MonsterVictory());
+            StartCoroutine(
+                MonsterVictory()
+            );
         }
     }
 
@@ -1811,22 +2695,29 @@ public class CombatManager : MonoBehaviour
     // HEALTH BAR
     // =========================================================
 
-    private void HideHealthBar(Health loser)
+    private void HideHealthBar(
+        Health loser
+    )
     {
         if (loser == null)
             return;
 
         Transform anchor =
-            loser.transform.Find("HealthBarAnchor");
+            loser.transform.Find(
+                "HealthBarAnchor"
+            );
 
         if (anchor == null)
         {
             Transform[] children =
-                loser.GetComponentsInChildren<Transform>(true);
+                loser.GetComponentsInChildren<Transform>(
+                    true
+                );
 
             foreach (Transform child in children)
             {
-                if (child.name == "HealthBarAnchor")
+                if (child.name ==
+                    "HealthBarAnchor")
                 {
                     anchor = child;
                     break;
@@ -1841,7 +2732,9 @@ public class CombatManager : MonoBehaviour
         }
 
         HealthBar[] healthBars =
-            loser.GetComponentsInChildren<HealthBar>(true);
+            loser.GetComponentsInChildren<HealthBar>(
+                true
+            );
 
         foreach (HealthBar healthBar in healthBars)
         {
@@ -1856,7 +2749,9 @@ public class CombatManager : MonoBehaviour
     // DEATH
     // =========================================================
 
-    private void PlayDeath(Health loser)
+    private void PlayDeath(
+        Health loser
+    )
     {
         if (loser == null)
             return;
@@ -1875,10 +2770,6 @@ public class CombatManager : MonoBehaviour
             return;
 
         animator.applyRootMotion = false;
-
-        // -----------------------------------------------------
-        // Reset combat triggers
-        // -----------------------------------------------------
 
         SafeResetTrigger(
             animator,
@@ -1915,18 +2806,10 @@ public class CombatManager : MonoBehaviour
             GetDamageTrigger
         );
 
-        // -----------------------------------------------------
-        // Stop walking
-        // -----------------------------------------------------
-
         SetWalking(
             animator,
             false
         );
-
-        // -----------------------------------------------------
-        // Death index
-        // -----------------------------------------------------
 
         if (HasParameter(
                 animator,
@@ -1935,7 +2818,7 @@ public class CombatManager : MonoBehaviour
             ))
         {
             int randomDeathIndex =
-                UnityEngine.Random.Range(0, 2);
+                Random.Range(0, 2);
 
             animator.SetInteger(
                 DeathIndexInt,
@@ -1947,10 +2830,6 @@ public class CombatManager : MonoBehaviour
                 $"DeathIndex: {randomDeathIndex}"
             );
         }
-
-        // -----------------------------------------------------
-        // Death trigger
-        // -----------------------------------------------------
 
         if (HasParameter(
                 animator,
@@ -1967,7 +2846,8 @@ public class CombatManager : MonoBehaviour
         {
             Debug.LogWarning(
                 $"[COMBAT] {loser.name} Animator " +
-                $"has no Death trigger."
+                $"has no Death trigger.",
+                loser
             );
         }
     }
@@ -1984,7 +2864,9 @@ public class CombatManager : MonoBehaviour
         StopPlayerMovementOnly();
         DisablePlayerSelection();
 
-        ResetCombatAnimator(playerAnimator);
+        ResetCombatAnimator(
+            playerAnimator
+        );
 
         if (playerAnimator != null &&
             HasParameter(
@@ -2026,7 +2908,9 @@ public class CombatManager : MonoBehaviour
         if (monster == null)
             yield break;
 
-        ResetCombatAnimator(monsterAnimator);
+        ResetCombatAnimator(
+            monsterAnimator
+        );
 
         if (monsterAnimator != null &&
             HasParameter(
@@ -2063,7 +2947,9 @@ public class CombatManager : MonoBehaviour
     // RESET COMBAT ANIMATOR
     // =========================================================
 
-    private void ResetCombatAnimator(Animator animator)
+    private void ResetCombatAnimator(
+        Animator animator
+    )
     {
         if (animator == null)
             return;
@@ -2128,17 +3014,19 @@ public class CombatManager : MonoBehaviour
         if (animator == null)
             return;
 
-        if (HasParameter(
+        if (!HasParameter(
                 animator,
                 WalkingBool,
                 AnimatorControllerParameterType.Bool
             ))
         {
-            animator.SetBool(
-                WalkingBool,
-                value
-            );
+            return;
         }
+
+        animator.SetBool(
+            WalkingBool,
+            value
+        );
     }
 
     // =========================================================
@@ -2163,6 +3051,10 @@ public class CombatManager : MonoBehaviour
                 player.transform.position.y;
         }
 
+        // Weapon może już istnieć po rejestracji.
+        muzzlePoint = null;
+        RefreshMuzzlePoint();
+
         ResetCombatState();
 
         Debug.Log(
@@ -2177,7 +3069,7 @@ public class CombatManager : MonoBehaviour
     }
 
     // =========================================================
-    // OPTIONAL RESET
+    // RESET FIGHT
     // =========================================================
 
     public void ResetFight()
@@ -2198,8 +3090,17 @@ public class CombatManager : MonoBehaviour
 
         CacheCombatantReferences();
 
-        ResetCombatAnimator(playerAnimator);
-        ResetCombatAnimator(monsterAnimator);
+        // Weapon może zostać utworzony ponownie podczas resetu.
+        muzzlePoint = null;
+        RefreshMuzzlePoint();
+
+        ResetCombatAnimator(
+            playerAnimator
+        );
+
+        ResetCombatAnimator(
+            monsterAnimator
+        );
 
         nextRoundTime =
             Time.time + 0.5f;
@@ -2211,6 +3112,8 @@ public class CombatManager : MonoBehaviour
 
     private void OnDestroy()
     {
+        StopAllCoroutines();
+
         if (Instance == this)
         {
             Instance = null;
