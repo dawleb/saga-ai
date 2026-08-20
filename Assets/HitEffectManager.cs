@@ -9,6 +9,7 @@ public class HitEffectManager : MonoBehaviour
     // =========================================================
 
     [Header("Blood Hit")]
+    [Tooltip("Prefab BloodSplat / efekt krwi na trafionym przeciwniku.")]
     public GameObject bloodHitEffect;
 
     [Min(0f)]
@@ -27,16 +28,67 @@ public class HitEffectManager : MonoBehaviour
     // =========================================================
 
     [Header("Blood Ground")]
+    [Tooltip(
+        "TU PRZYPISZ PRAWDZIWY BloodSplat.prefab z BloodFX/Prefabs. " +
+        "Nie Decal Projector."
+    )]
     public GameObject bloodGroundEffect;
 
     [Min(0f)]
+    [Tooltip(
+        "0 = plama nie jest niszczona przez ten skrypt. " +
+        "Dla prawdziwego BloodSplat prefab jest to zalecane."
+    )]
     public float bloodGroundLifetime = 0f;
+
+    [Tooltip(
+        "Jak długo cząstki BloodSplat mają być widoczne na ziemi."
+    )]
+    [Min(0.1f)]
+    public float groundParticleLifetime = 30f;
+
+    [Tooltip(
+        "Skala plamy na ziemi."
+    )]
+    [Min(0.01f)]
+    public float groundScale = 1.5f;
+
+    [Tooltip(
+        "Wymusza poziomy billboard, dzięki czemu BloodSplat leży na podłodze."
+    )]
+    public bool forceGroundHorizontalBillboard = true;
+
+    [Tooltip(
+        "Wyłącza prędkość cząstek dla wersji używanej jako plama na ziemi."
+    )]
+    public bool freezeGroundParticles = true;
+
+    [Tooltip(
+        "Wymusza brak grawitacji dla plamy."
+    )]
+    public bool disableGroundGravity = true;
+
+    [Tooltip(
+        "Jeżeli prefab ma istniejące cząstki, usuwa je i tworzy je ponownie."
+    )]
+    public bool clearGroundParticlesBeforePlay = true;
+
+    [Tooltip(
+        "Losowo obraca plamę wokół normalnej podłoża."
+    )]
+    public bool randomGroundRotation = true;
+
+    // =========================================================
+    // GROUND RAYCAST
+    // =========================================================
+
+    [Header("Ground Raycast")]
 
     [Min(0f)]
     public float groundRayStartHeight = 1.5f;
 
     [Min(0f)]
-    public float groundOffset = 0.015f;
+    public float groundOffset = 0.02f;
 
     [Min(0.1f)]
     public float groundRayDistance = 50f;
@@ -59,85 +111,6 @@ public class HitEffectManager : MonoBehaviour
     public float minimumFloorNormal = 0.7f;
 
     public bool onlyHorizontalSurfaces = true;
-
-    // =========================================================
-    // BLOOD SPLAT ROTATION
-    // =========================================================
-
-    [Header("Blood Splat Rotation")]
-
-    [Tooltip(
-        "Dla oryginalnego BloodFX nie ma większego znaczenia, " +
-        "ponieważ BloodSplat jest Particle Systemem. " +
-        "Zostaw TRUE."
-    )]
-    public bool particleUsesForwardAsNormal = true;
-
-    public bool randomGroundRotation = true;
-
-    // =========================================================
-    // BLOOD GROUND SCALE
-    // =========================================================
-
-    [Header("Blood Ground Scale")]
-
-    public bool overrideGroundScale = false;
-
-    public Vector3 groundScale = Vector3.one;
-
-    [Min(0.01f)]
-    public float groundVisualMultiplier = 1.5f;
-
-    // =========================================================
-    // VISUAL FIX
-    // =========================================================
-
-    [Header("Visual Fix")]
-
-    public bool preventZeroScale = true;
-
-    [Min(0.0001f)]
-    public float minimumVisualScale = 0.001f;
-
-    public bool enableNonParticleRenderers = true;
-
-    // =========================================================
-    // BLOOD MATERIAL FIX
-    // =========================================================
-
-    [Header("Blood Material Fix")]
-
-    [Tooltip(
-        "Automatycznie zastępuje niekompatybilny shader BloodFX " +
-        "prostym shaderem Particle/Unlit."
-    )]
-    public bool fixBloodMaterialAutomatically = true;
-
-    [Tooltip(
-        "Wymusza czerwony kolor krwi zamiast koloru z oryginalnego assetu."
-    )]
-    public bool forceBloodRedColor = true;
-
-    public Color bloodColor =
-        new Color(
-            0.35f,
-            0.005f,
-            0.002f,
-            1f
-        );
-
-    [Range(0.1f, 2f)]
-    public float bloodBrightness = 1f;
-
-    [Tooltip(
-        "Dla plamy na ziemi ustawia Particle System jako Horizontal Billboard."
-    )]
-    public bool forceGroundHorizontalBillboard = true;
-
-    [Tooltip(
-        "Próbuje użyć tekstury BloodSplat z oryginalnego materiału."
-    )]
-    public bool copyOriginalBloodTexture = true;
 
     // =========================================================
     // HIT POINT
@@ -165,8 +138,6 @@ public class HitEffectManager : MonoBehaviour
     public bool debugGroundRay = true;
 
     public bool debugLogs = true;
-
-    public bool debugRendererInfo = true;
 
     // =========================================================
     // UNITY
@@ -215,9 +186,12 @@ public class HitEffectManager : MonoBehaviour
     {
         if (bloodHitEffect == null)
         {
-            Debug.LogWarning(
-                "[HIT FX] Blood Hit Effect is not assigned."
-            );
+            if (debugLogs)
+            {
+                Debug.LogWarning(
+                    "[HIT FX] bloodHitEffect == NULL."
+                );
+            }
 
             return;
         }
@@ -276,7 +250,7 @@ public class HitEffectManager : MonoBehaviour
         if (effect == null)
         {
             Debug.LogError(
-                "[HIT FX] Failed to instantiate Blood Hit."
+                "[HIT FX] Nie udało się utworzyć Blood HIT."
             );
 
             return;
@@ -284,17 +258,12 @@ public class HitEffectManager : MonoBehaviour
 
         effect.SetActive(true);
 
-        if (fixBloodMaterialAutomatically)
-        {
-            FixBloodMaterials(
-                effect,
-                false
-            );
-        }
-
         EnableAllRenderers(effect);
 
-        PlayAllParticleSystems(effect);
+        PlayAllParticleSystems(
+            effect,
+            false
+        );
 
         if (bloodHitLifetime > 0f)
         {
@@ -307,7 +276,7 @@ public class HitEffectManager : MonoBehaviour
         if (debugLogs)
         {
             Debug.Log(
-                "[HIT FX] Blood HIT spawned at " +
+                "[HIT FX] Blood HIT spawned: " +
                 spawnPosition
             );
         }
@@ -324,8 +293,9 @@ public class HitEffectManager : MonoBehaviour
     {
         if (bloodGroundEffect == null)
         {
-            Debug.LogWarning(
-                "[HIT FX] Blood Ground Effect is not assigned!"
+            Debug.LogError(
+                "[HIT FX] bloodGroundEffect == NULL. " +
+                "Przypisz tutaj BloodSplat.prefab."
             );
 
             return;
@@ -345,7 +315,7 @@ public class HitEffectManager : MonoBehaviour
                 out groundHit
             ))
             {
-                SpawnGroundMark(
+                SpawnGroundBloodSplat(
                     groundHit.point,
                     groundHit.normal
                 );
@@ -372,7 +342,7 @@ public class HitEffectManager : MonoBehaviour
                 out groundHit
             ))
             {
-                SpawnGroundMark(
+                SpawnGroundBloodSplat(
                     groundHit.point,
                     groundHit.normal
                 );
@@ -394,7 +364,7 @@ public class HitEffectManager : MonoBehaviour
                 out groundHit
             ))
             {
-                SpawnGroundMark(
+                SpawnGroundBloodSplat(
                     groundHit.point,
                     groundHit.normal
                 );
@@ -404,7 +374,7 @@ public class HitEffectManager : MonoBehaviour
         }
 
         Debug.LogWarning(
-            "[HIT FX] NIE ZNALEZIONO PODŁOGI - Blood Splat nie został utworzony."
+            "[HIT FX] Nie znaleziono podłoża dla BloodSplat."
         );
     }
 
@@ -429,7 +399,8 @@ public class HitEffectManager : MonoBehaviour
         {
             Debug.DrawRay(
                 origin,
-                Vector3.down * groundRayDistance,
+                Vector3.down *
+                groundRayDistance,
                 Color.green,
                 3f
             );
@@ -506,26 +477,17 @@ public class HitEffectManager : MonoBehaviour
         foreach (RaycastHit hit in hits)
         {
             if (hit.collider == null)
-            {
                 continue;
-            }
 
             if (!hit.collider.enabled)
-            {
                 continue;
-            }
 
             if (!hit.collider.gameObject.activeInHierarchy)
-            {
                 continue;
-            }
 
             if (hit.collider.isTrigger)
-            {
                 continue;
-            }
 
-            // Nie kładź krwi na przeciwniku.
             if (victim != null &&
                 IsColliderPartOfVictim(
                     hit.collider,
@@ -539,9 +501,7 @@ public class HitEffectManager : MonoBehaviour
                 hit.normal;
 
             if (normal.sqrMagnitude < 0.001f)
-            {
                 continue;
-            }
 
             normal.Normalize();
 
@@ -557,12 +517,13 @@ public class HitEffectManager : MonoBehaviour
                 continue;
             }
 
-            selectedHit = hit;
+            selectedHit =
+                hit;
 
             if (debugLogs)
             {
                 Debug.Log(
-                    "[HIT FX] FLOOR FOUND: " +
+                    "[HIT FX] GROUND FOUND: " +
                     hit.collider.name +
                     " | point=" +
                     hit.point +
@@ -577,6 +538,284 @@ public class HitEffectManager : MonoBehaviour
         }
 
         return false;
+    }
+
+    // =========================================================
+    // REAL BLOODSPLAT PREFAB
+    // =========================================================
+
+    private void SpawnGroundBloodSplat(
+        Vector3 position,
+        Vector3 normal
+    )
+    {
+        if (bloodGroundEffect == null)
+        {
+            Debug.LogError(
+                "[HIT FX] BloodSplat prefab jest NULL."
+            );
+
+            return;
+        }
+
+        if (normal.sqrMagnitude <
+            0.001f)
+        {
+            normal =
+                Vector3.up;
+        }
+
+        normal.Normalize();
+
+        // -----------------------------------------------------
+        // LEKKIE ODSUNIĘCIE OD PODŁOGI
+        // -----------------------------------------------------
+
+        position +=
+            normal *
+            groundOffset;
+
+        // -----------------------------------------------------
+        // ROTACJA
+        //
+        // BloodSplat z repo jest Particle Systemem.
+        // Nie potrzebujemy Decal Projectora.
+        //
+        // Renderer jest później ustawiany jako
+        // HorizontalBillboard.
+        // -----------------------------------------------------
+
+        Quaternion rotation =
+            Quaternion.FromToRotation(
+                Vector3.up,
+                normal
+            );
+
+        if (randomGroundRotation)
+        {
+            Quaternion random =
+                Quaternion.AngleAxis(
+                    Random.Range(
+                        0f,
+                        360f
+                    ),
+                    normal
+                );
+
+            rotation =
+                random *
+                rotation;
+        }
+
+        // -----------------------------------------------------
+        // INSTANTIATE
+        // -----------------------------------------------------
+
+        GameObject splat =
+            Instantiate(
+                bloodGroundEffect,
+                position,
+                rotation
+            );
+
+        if (splat == null)
+        {
+            Debug.LogError(
+                "[HIT FX] BloodSplat Instantiate FAILED."
+            );
+
+            return;
+        }
+
+        splat.name =
+            bloodGroundEffect.name +
+            "_GroundRuntime";
+
+        splat.SetActive(true);
+
+        // -----------------------------------------------------
+        // SCALE
+        // -----------------------------------------------------
+
+        splat.transform.localScale =
+            Vector3.one *
+            groundScale;
+
+        // -----------------------------------------------------
+        // PARTICLE SYSTEMS
+        // -----------------------------------------------------
+
+        ParticleSystem[] systems =
+            splat.GetComponentsInChildren<ParticleSystem>(
+                true
+            );
+
+        if (systems == null ||
+            systems.Length == 0)
+        {
+            Debug.LogError(
+                "[HIT FX] BloodSplat prefab NIE MA ParticleSystem."
+            );
+
+            Destroy(splat);
+
+            return;
+        }
+
+        // -----------------------------------------------------
+        // CONFIGURE PARTICLES
+        // -----------------------------------------------------
+
+        foreach (ParticleSystem ps in systems)
+        {
+            if (ps == null)
+                continue;
+
+            ps.gameObject.SetActive(true);
+
+            ParticleSystem.MainModule main =
+                ps.main;
+
+            // ---------------------------------------------
+            // BLOODSPLAT Z REPO MA OKOŁO 0.4-0.5s
+            //
+            // Tutaj celowo wydłużamy życie cząstek,
+            // żeby ground splat nie znikał po chwili.
+            // ---------------------------------------------
+
+            main.startLifetime =
+                groundParticleLifetime;
+
+            // ---------------------------------------------
+            // BRAK GRAWITACJI
+            // ---------------------------------------------
+
+            if (disableGroundGravity)
+            {
+                main.gravityModifier =
+                    0f;
+            }
+
+            // ---------------------------------------------
+            // BRAK RUCHU
+            // ---------------------------------------------
+
+            if (freezeGroundParticles)
+            {
+                main.startSpeed =
+                    0f;
+            }
+
+            // ---------------------------------------------
+            // EMISSION
+            //
+            // Nie zmieniamy tekstury ani materiału.
+            // Używamy konfiguracji prawdziwego BloodSplat.
+            // ---------------------------------------------
+
+            if (clearGroundParticlesBeforePlay)
+            {
+                ps.Stop(
+                    true,
+                    ParticleSystemStopBehavior.StopEmittingAndClear
+                );
+
+                ps.Clear(true);
+            }
+
+            // ---------------------------------------------
+            // RENDERER
+            // ---------------------------------------------
+
+            ParticleSystemRenderer renderer =
+                ps.GetComponent<ParticleSystemRenderer>();
+
+            if (renderer != null)
+            {
+                if (forceGroundHorizontalBillboard)
+                {
+                    renderer.renderMode =
+                        ParticleSystemRenderMode.HorizontalBillboard;
+                }
+
+                renderer.enabled = true;
+
+                renderer.gameObject.SetActive(true);
+
+                renderer.sortMode =
+                    ParticleSystemSortMode.Distance;
+            }
+
+            // ---------------------------------------------
+            // PLAY
+            // ---------------------------------------------
+
+            ps.Play(true);
+
+            if (debugLogs)
+            {
+                Debug.Log(
+                    "[HIT FX] GROUND BLOODSPLAT PLAY: " +
+                    ps.name +
+                    " | lifetime=" +
+                    groundParticleLifetime +
+                    " | startSpeed=0"
+                );
+            }
+        }
+
+        // -----------------------------------------------------
+        // RENDERERS
+        // -----------------------------------------------------
+
+        EnableAllRenderers(
+            splat
+        );
+
+        // -----------------------------------------------------
+        // DEBUG
+        // -----------------------------------------------------
+
+        if (debugGroundRay)
+        {
+            Debug.DrawRay(
+                position,
+                normal * 0.5f,
+                Color.magenta,
+                10f
+            );
+        }
+
+        if (debugLogs)
+        {
+            Debug.Log(
+                "[HIT FX] BLOODSPLAT GROUND CREATED\n" +
+                "Prefab: " +
+                bloodGroundEffect.name +
+                "\nObject: " +
+                splat.name +
+                "\nPosition: " +
+                position +
+                "\nNormal: " +
+                normal +
+                "\nScale: " +
+                groundScale +
+                "\nParticle lifetime: " +
+                groundParticleLifetime
+            );
+        }
+
+        // -----------------------------------------------------
+        // OPTIONAL DESTROY
+        // -----------------------------------------------------
+
+        if (bloodGroundLifetime > 0f)
+        {
+            Destroy(
+                splat,
+                bloodGroundLifetime
+            );
+        }
     }
 
     // =========================================================
@@ -597,7 +836,8 @@ public class HitEffectManager : MonoBehaviour
                 true
             );
 
-        bool foundBounds = false;
+        bool foundBounds =
+            false;
 
         Bounds bounds =
             new Bounds(
@@ -608,16 +848,15 @@ public class HitEffectManager : MonoBehaviour
         foreach (Collider collider in colliders)
         {
             if (!IsValidCollider(collider))
-            {
                 continue;
-            }
 
             if (!foundBounds)
             {
                 bounds =
                     collider.bounds;
 
-                foundBounds = true;
+                foundBounds =
+                    true;
             }
             else
             {
@@ -639,801 +878,6 @@ public class HitEffectManager : MonoBehaviour
         }
 
         return victim.position;
-    }
-
-    // =========================================================
-    // SPAWN GROUND MARK
-    // =========================================================
-
-    private void SpawnGroundMark(
-        Vector3 position,
-        Vector3 normal
-    )
-    {
-        if (bloodGroundEffect == null)
-        {
-            Debug.LogWarning(
-                "[HIT FX] Blood Ground Effect is null."
-            );
-
-            return;
-        }
-
-        if (normal.sqrMagnitude < 0.001f)
-        {
-            normal = Vector3.up;
-        }
-
-        normal.Normalize();
-
-        // -----------------------------------------------------
-        // OFFSET
-        // -----------------------------------------------------
-
-        position +=
-            normal *
-            groundOffset;
-
-        // -----------------------------------------------------
-        // ROTATION
-        // -----------------------------------------------------
-
-        Quaternion rotation =
-            Quaternion.identity;
-
-        if (!forceGroundHorizontalBillboard)
-        {
-            if (particleUsesForwardAsNormal)
-            {
-                rotation =
-                    Quaternion.FromToRotation(
-                        Vector3.forward,
-                        normal
-                    );
-            }
-            else
-            {
-                rotation =
-                    Quaternion.FromToRotation(
-                        Vector3.up,
-                        normal
-                    );
-            }
-
-            if (randomGroundRotation)
-            {
-                Quaternion randomRotation =
-                    Quaternion.AngleAxis(
-                        Random.Range(
-                            0f,
-                            360f
-                        ),
-                        normal
-                    );
-
-                rotation =
-                    randomRotation *
-                    rotation;
-            }
-        }
-
-        // -----------------------------------------------------
-        // INSTANTIATE
-        // -----------------------------------------------------
-
-        GameObject mark =
-            Instantiate(
-                bloodGroundEffect,
-                position,
-                rotation
-            );
-
-        if (mark == null)
-        {
-            Debug.LogError(
-                "[HIT FX] Blood Ground Instantiate FAILED!"
-            );
-
-            return;
-        }
-
-        mark.name =
-            bloodGroundEffect.name +
-            "_Runtime";
-
-        mark.SetActive(true);
-
-        // -----------------------------------------------------
-        // SCALE
-        // -----------------------------------------------------
-
-        if (overrideGroundScale)
-        {
-            mark.transform.localScale =
-                groundScale;
-        }
-        else
-        {
-            mark.transform.localScale *=
-                groundVisualMultiplier;
-        }
-
-        if (preventZeroScale)
-        {
-            EnsureMinimumScale(mark);
-        }
-
-        // -----------------------------------------------------
-        // MATERIAL
-        // -----------------------------------------------------
-
-        if (fixBloodMaterialAutomatically)
-        {
-            FixBloodMaterials(
-                mark,
-                true
-            );
-        }
-
-        // -----------------------------------------------------
-        // PARTICLES
-        // -----------------------------------------------------
-
-        ParticleSystem[] systems =
-            mark.GetComponentsInChildren<ParticleSystem>(
-                true
-            );
-
-        // -----------------------------------------------------
-        // FORCE GROUND PARTICLE MODE
-        // -----------------------------------------------------
-
-        if (forceGroundHorizontalBillboard)
-        {
-            foreach (ParticleSystem ps in systems)
-            {
-                if (ps == null)
-                {
-                    continue;
-                }
-
-                ParticleSystemRenderer psRenderer =
-                    ps.GetComponent<ParticleSystemRenderer>();
-
-                if (psRenderer != null)
-                {
-                    psRenderer.renderMode =
-                        ParticleSystemRenderMode.HorizontalBillboard;
-
-                    psRenderer.sortMode =
-                        ParticleSystemSortMode.Distance;
-
-                    psRenderer.alignment =
-                        ParticleSystemRenderSpace.World;
-                }
-            }
-        }
-
-        // -----------------------------------------------------
-        // RENDERERS
-        // -----------------------------------------------------
-
-        EnableAllRenderers(mark);
-
-        Renderer[] renderers =
-            mark.GetComponentsInChildren<Renderer>(
-                true
-            );
-
-        // -----------------------------------------------------
-        // DEBUG
-        // -----------------------------------------------------
-
-        if (debugLogs)
-        {
-            Debug.Log(
-                "[HIT FX] Blood Splat instantiated: " +
-                mark.name +
-                " | particles=" +
-                systems.Length +
-                " | renderers=" +
-                renderers.Length +
-                " | position=" +
-                position +
-                " | normal=" +
-                normal
-            );
-        }
-
-        if (systems.Length == 0 &&
-            renderers.Length == 0)
-        {
-            Debug.LogWarning(
-                "[HIT FX] BLOOD SPLAT NIE MA ParticleSystem ANI Renderer!"
-            );
-        }
-
-        // -----------------------------------------------------
-        // PLAY
-        // -----------------------------------------------------
-
-        foreach (ParticleSystem ps in systems)
-        {
-            if (ps == null)
-            {
-                continue;
-            }
-
-            ps.gameObject.SetActive(true);
-
-            if (clearParticlesBeforePlay)
-            {
-                ps.Stop(
-                    true,
-                    ParticleSystemStopBehavior.StopEmittingAndClear
-                );
-
-                ps.Clear(true);
-            }
-
-            if (forcePlayParticleSystems)
-            {
-                ps.Play(true);
-            }
-
-            if (debugLogs)
-            {
-                ParticleSystemRenderer psRenderer =
-                    ps.GetComponent<ParticleSystemRenderer>();
-
-                string materialName =
-                    "NONE";
-
-                if (psRenderer != null &&
-                    psRenderer.sharedMaterial != null)
-                {
-                    materialName =
-                        psRenderer.sharedMaterial.name;
-                }
-
-                Debug.Log(
-                    "[HIT FX] Playing particle: " +
-                    ps.name +
-                    " | isPlaying=" +
-                    ps.isPlaying +
-                    " | material=" +
-                    materialName
-                );
-            }
-        }
-
-        // -----------------------------------------------------
-        // COLLIDERS OFF
-        // -----------------------------------------------------
-
-        Collider[] markColliders =
-            mark.GetComponentsInChildren<Collider>(
-                true
-            );
-
-        foreach (Collider collider in markColliders)
-        {
-            if (collider != null)
-            {
-                collider.enabled = false;
-            }
-        }
-
-        // -----------------------------------------------------
-        // LIFETIME
-        // -----------------------------------------------------
-
-        if (bloodGroundLifetime > 0f)
-        {
-            Destroy(
-                mark,
-                bloodGroundLifetime
-            );
-        }
-
-        // -----------------------------------------------------
-        // DEBUG
-        // -----------------------------------------------------
-
-        if (debugGroundRay)
-        {
-            Debug.DrawRay(
-                position,
-                normal * 0.5f,
-                Color.magenta,
-                5f
-            );
-        }
-    }
-
-    // =========================================================
-    // MATERIAL FIX
-    // =========================================================
-
-    private void FixBloodMaterials(
-        GameObject effect,
-        bool ground
-    )
-    {
-        if (effect == null)
-        {
-            return;
-        }
-
-        ParticleSystemRenderer[] particleRenderers =
-            effect.GetComponentsInChildren<ParticleSystemRenderer>(
-                true
-            );
-
-        foreach (ParticleSystemRenderer psRenderer in particleRenderers)
-        {
-            if (psRenderer == null)
-            {
-                continue;
-            }
-
-            Material original =
-                psRenderer.sharedMaterial;
-
-            Material fixedMaterial =
-                CreateCompatibleBloodMaterial(
-                    original
-                );
-
-            if (fixedMaterial != null)
-            {
-                psRenderer.material =
-                    fixedMaterial;
-
-                if (debugLogs)
-                {
-                    Debug.Log(
-                        "[HIT FX] Blood material FIXED: " +
-                        psRenderer.gameObject.name +
-                        " | shader=" +
-                        fixedMaterial.shader.name
-                    );
-                }
-            }
-        }
-
-        if (enableNonParticleRenderers)
-        {
-            Renderer[] renderers =
-                effect.GetComponentsInChildren<Renderer>(
-                    true
-                );
-
-            foreach (Renderer renderer in renderers)
-            {
-                if (renderer == null)
-                {
-                    continue;
-                }
-
-                if (renderer is ParticleSystemRenderer)
-                {
-                    continue;
-                }
-
-                Material original =
-                    renderer.sharedMaterial;
-
-                Material fixedMaterial =
-                    CreateCompatibleBloodMaterial(
-                        original
-                    );
-
-                if (fixedMaterial != null)
-                {
-                    renderer.material =
-                        fixedMaterial;
-                }
-            }
-        }
-    }
-
-    // =========================================================
-    // CREATE COMPATIBLE BLOOD MATERIAL
-    // =========================================================
-
-    private Material CreateCompatibleBloodMaterial(
-        Material original
-    )
-    {
-        Texture bloodTexture = null;
-
-        if (original != null)
-        {
-            if (original.HasProperty("_bloodTex"))
-            {
-                bloodTexture =
-                    original.GetTexture("_bloodTex");
-            }
-
-            if (bloodTexture == null &&
-                original.HasProperty("_MainTex"))
-            {
-                bloodTexture =
-                    original.GetTexture("_MainTex");
-            }
-
-            if (bloodTexture == null &&
-                original.HasProperty("_BaseMap"))
-            {
-                bloodTexture =
-                    original.GetTexture("_BaseMap");
-            }
-        }
-
-        Shader shader =
-            FindBestParticleShader();
-
-        if (shader == null)
-        {
-            Debug.LogError(
-                "[HIT FX] Nie znaleziono kompatybilnego shadera Particle."
-            );
-
-            return null;
-        }
-
-        Material material =
-            new Material(shader);
-
-        material.name =
-            "BloodFX_Runtime_Material";
-
-        // -----------------------------------------------------
-        // TEXTURE
-        // -----------------------------------------------------
-
-        if (bloodTexture != null)
-        {
-            if (material.HasProperty("_BaseMap"))
-            {
-                material.SetTexture(
-                    "_BaseMap",
-                    bloodTexture
-                );
-            }
-
-            if (material.HasProperty("_MainTex"))
-            {
-                material.SetTexture(
-                    "_MainTex",
-                    bloodTexture
-                );
-            }
-
-            if (debugLogs)
-            {
-                Debug.Log(
-                    "[HIT FX] Blood texture copied: " +
-                    bloodTexture.name
-                );
-            }
-        }
-        else
-        {
-            Debug.LogWarning(
-                "[HIT FX] Nie znaleziono tekstury BloodSplat w materiale."
-            );
-        }
-
-        // -----------------------------------------------------
-        // COLOR
-        // -----------------------------------------------------
-
-        Color finalBloodColor =
-            bloodColor *
-            bloodBrightness;
-
-        finalBloodColor.a = 1f;
-
-        if (material.HasProperty("_BaseColor"))
-        {
-            material.SetColor(
-                "_BaseColor",
-                finalBloodColor
-            );
-        }
-
-        if (material.HasProperty("_Color"))
-        {
-            material.SetColor(
-                "_Color",
-                finalBloodColor
-            );
-        }
-
-        // -----------------------------------------------------
-        // SURFACE SETTINGS
-        // -----------------------------------------------------
-
-        if (material.HasProperty("_Surface"))
-        {
-            material.SetFloat(
-                "_Surface",
-                1f
-            );
-        }
-
-        if (material.HasProperty("_Blend"))
-        {
-            material.SetFloat(
-                "_Blend",
-                0f
-            );
-        }
-
-        if (material.HasProperty("_ZWrite"))
-        {
-            material.SetFloat(
-                "_ZWrite",
-                0f
-            );
-        }
-
-        if (material.HasProperty("_Cull"))
-        {
-            material.SetFloat(
-                "_Cull",
-                0f
-            );
-        }
-
-        // -----------------------------------------------------
-        // KEYWORDS
-        // -----------------------------------------------------
-
-        material.EnableKeyword(
-            "_SURFACE_TYPE_TRANSPARENT"
-        );
-
-        material.EnableKeyword(
-            "_ALPHAPREMULTIPLY_ON"
-        );
-
-        return material;
-    }
-
-    // =========================================================
-    // FIND SHADER
-    // =========================================================
-
-    private Shader FindBestParticleShader()
-    {
-        // -----------------------------------------------------
-        // URP
-        // -----------------------------------------------------
-
-        Shader shader =
-            Shader.Find(
-                "Universal Render Pipeline/Particles/Unlit"
-            );
-
-        if (shader != null)
-        {
-            if (debugLogs)
-            {
-                Debug.Log(
-                    "[HIT FX] Using URP Particle shader."
-                );
-            }
-
-            return shader;
-        }
-
-        // -----------------------------------------------------
-        // BUILT-IN UNITY
-        // -----------------------------------------------------
-
-        shader =
-            Shader.Find(
-                "Particles/Standard Unlit"
-            );
-
-        if (shader != null)
-        {
-            if (debugLogs)
-            {
-                Debug.Log(
-                    "[HIT FX] Using Built-in Particle shader."
-                );
-            }
-
-            return shader;
-        }
-
-        // -----------------------------------------------------
-        // SPRITES FALLBACK
-        // -----------------------------------------------------
-
-        shader =
-            Shader.Find(
-                "Sprites/Default"
-            );
-
-        if (shader != null)
-        {
-            if (debugLogs)
-            {
-                Debug.Log(
-                    "[HIT FX] Using Sprites/Default fallback shader."
-                );
-            }
-
-            return shader;
-        }
-
-        return null;
-    }
-
-    // =========================================================
-    // ENSURE MINIMUM SCALE
-    // =========================================================
-
-    private void EnsureMinimumScale(
-        GameObject effect
-    )
-    {
-        if (effect == null)
-        {
-            return;
-        }
-
-        Vector3 scale =
-            effect.transform.localScale;
-
-        if (Mathf.Abs(scale.x) <
-            minimumVisualScale)
-        {
-            scale.x =
-                scale.x < 0f
-                    ? -minimumVisualScale
-                    : minimumVisualScale;
-        }
-
-        if (Mathf.Abs(scale.y) <
-            minimumVisualScale)
-        {
-            scale.y =
-                scale.y < 0f
-                    ? -minimumVisualScale
-                    : minimumVisualScale;
-        }
-
-        if (Mathf.Abs(scale.z) <
-            minimumVisualScale)
-        {
-            scale.z =
-                scale.z < 0f
-                    ? -minimumVisualScale
-                    : minimumVisualScale;
-        }
-
-        effect.transform.localScale =
-            scale;
-    }
-
-    // =========================================================
-    // PLAY PARTICLES
-    // =========================================================
-
-    private void PlayAllParticleSystems(
-        GameObject effect
-    )
-    {
-        if (effect == null)
-        {
-            return;
-        }
-
-        ParticleSystem[] systems =
-            effect.GetComponentsInChildren<ParticleSystem>(
-                true
-            );
-
-        foreach (ParticleSystem ps in systems)
-        {
-            if (ps == null)
-            {
-                continue;
-            }
-
-            ps.gameObject.SetActive(true);
-
-            if (clearParticlesBeforePlay)
-            {
-                ps.Stop(
-                    true,
-                    ParticleSystemStopBehavior.StopEmittingAndClear
-                );
-
-                ps.Clear(true);
-            }
-
-            if (forcePlayParticleSystems)
-            {
-                ps.Play(true);
-            }
-
-            if (debugLogs)
-            {
-                Debug.Log(
-                    "[HIT FX] Playing HIT particle: " +
-                    ps.name
-                );
-            }
-        }
-    }
-
-    // =========================================================
-    // RENDERERS
-    // =========================================================
-
-    private void EnableAllRenderers(
-        GameObject effect
-    )
-    {
-        if (effect == null)
-        {
-            return;
-        }
-
-        Renderer[] renderers =
-            effect.GetComponentsInChildren<Renderer>(
-                true
-            );
-
-        foreach (Renderer renderer in renderers)
-        {
-            if (renderer == null)
-            {
-                continue;
-            }
-
-            renderer.gameObject.SetActive(true);
-            renderer.enabled = true;
-
-            if (debugRendererInfo &&
-                debugLogs)
-            {
-                string materialName =
-                    "NONE";
-
-                if (renderer.sharedMaterial != null)
-                {
-                    materialName =
-                        renderer.sharedMaterial.name;
-                }
-
-                Debug.Log(
-                    "[HIT FX] Renderer: " +
-                    renderer.GetType().Name +
-                    " | object=" +
-                    renderer.gameObject.name +
-                    " | material=" +
-                    materialName +
-                    " | enabled=" +
-                    renderer.enabled
-                );
-            }
-        }
-
-        if (debugLogs)
-        {
-            Debug.Log(
-                "[HIT FX] Enabled renderers: " +
-                renderers.Length
-            );
-        }
     }
 
     // =========================================================
@@ -1504,19 +948,16 @@ public class HitEffectManager : MonoBehaviour
         float closestDistance =
             float.MaxValue;
 
-        bool foundPoint = false;
+        bool foundPoint =
+            false;
 
         foreach (Collider collider in colliders)
         {
             if (!IsValidCollider(collider))
-            {
                 continue;
-            }
 
             if (!CanUseClosestPoint(collider))
-            {
                 continue;
-            }
 
             Vector3 point;
 
@@ -1584,24 +1025,16 @@ public class HitEffectManager : MonoBehaviour
     )
     {
         if (collider == null)
-        {
             return false;
-        }
 
         if (!collider.enabled)
-        {
             return false;
-        }
 
         if (!collider.gameObject.activeInHierarchy)
-        {
             return false;
-        }
 
         if (collider.isTrigger)
-        {
             return false;
-        }
 
         return true;
     }
@@ -1615,24 +1048,16 @@ public class HitEffectManager : MonoBehaviour
     )
     {
         if (collider == null)
-        {
             return false;
-        }
 
         if (collider is BoxCollider)
-        {
             return true;
-        }
 
         if (collider is SphereCollider)
-        {
             return true;
-        }
 
         if (collider is CapsuleCollider)
-        {
             return true;
-        }
 
         MeshCollider meshCollider =
             collider as MeshCollider;
@@ -1668,7 +1093,8 @@ public class HitEffectManager : MonoBehaviour
                 true
             );
 
-        bool foundBounds = false;
+        bool foundBounds =
+            false;
 
         Bounds bounds =
             new Bounds(
@@ -1679,16 +1105,15 @@ public class HitEffectManager : MonoBehaviour
         foreach (Collider collider in colliders)
         {
             if (!IsValidCollider(collider))
-            {
                 continue;
-            }
 
             if (!foundBounds)
             {
                 bounds =
                     collider.bounds;
 
-                foundBounds = true;
+                foundBounds =
+                    true;
             }
             else
             {
@@ -1743,9 +1168,7 @@ public class HitEffectManager : MonoBehaviour
         foreach (RaycastHit hit in hits)
         {
             if (hit.collider == null)
-            {
                 continue;
-            }
 
             if (!IsValidCollider(
                 hit.collider
@@ -1776,9 +1199,7 @@ public class HitEffectManager : MonoBehaviour
     )
     {
         if (victim == null)
-        {
             return false;
-        }
 
         return IsColliderPartOfVictim(
             collider,
@@ -1801,9 +1222,7 @@ public class HitEffectManager : MonoBehaviour
             collider.transform;
 
         if (colliderTransform == victim)
-        {
             return true;
-        }
 
         if (colliderTransform.IsChildOf(
             victim
@@ -1843,7 +1262,8 @@ public class HitEffectManager : MonoBehaviour
                 true
             );
 
-        bool foundBounds = false;
+        bool foundBounds =
+            false;
 
         Bounds bounds =
             new Bounds(
@@ -1854,16 +1274,15 @@ public class HitEffectManager : MonoBehaviour
         foreach (Collider collider in colliders)
         {
             if (!IsValidCollider(collider))
-            {
                 continue;
-            }
 
             if (!foundBounds)
             {
                 bounds =
                     collider.bounds;
 
-                foundBounds = true;
+                foundBounds =
+                    true;
             }
             else
             {
@@ -1958,6 +1377,91 @@ public class HitEffectManager : MonoBehaviour
             victim.transform,
             attacker
         );
+    }
+
+    // =========================================================
+    // PLAY PARTICLES
+    // =========================================================
+
+    private void PlayAllParticleSystems(
+        GameObject effect,
+        bool ground
+    )
+    {
+        if (effect == null)
+            return;
+
+        ParticleSystem[] systems =
+            effect.GetComponentsInChildren<ParticleSystem>(
+                true
+            );
+
+        foreach (ParticleSystem ps in systems)
+        {
+            if (ps == null)
+                continue;
+
+            ps.gameObject.SetActive(true);
+
+            if (clearParticlesBeforePlay)
+            {
+                ps.Stop(
+                    true,
+                    ParticleSystemStopBehavior.StopEmittingAndClear
+                );
+
+                ps.Clear(true);
+            }
+
+            if (forcePlayParticleSystems)
+            {
+                ps.Play(true);
+            }
+
+            if (debugLogs)
+            {
+                Debug.Log(
+                    "[HIT FX] Playing particle: " +
+                    ps.name +
+                    " | ground=" +
+                    ground
+                );
+            }
+        }
+    }
+
+    // =========================================================
+    // RENDERERS
+    // =========================================================
+
+    private void EnableAllRenderers(
+        GameObject effect
+    )
+    {
+        if (effect == null)
+            return;
+
+        Renderer[] renderers =
+            effect.GetComponentsInChildren<Renderer>(
+                true
+            );
+
+        foreach (Renderer renderer in renderers)
+        {
+            if (renderer == null)
+                continue;
+
+            renderer.gameObject.SetActive(true);
+            renderer.enabled = true;
+        }
+
+        if (debugLogs)
+        {
+            Debug.Log(
+                "[HIT FX] Enabled renderers: " +
+                renderers.Length
+            );
+        }
     }
 
     // =========================================================
